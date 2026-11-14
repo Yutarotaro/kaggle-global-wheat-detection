@@ -135,6 +135,12 @@ WBFの撮影元別スコアは `rres_1` 0.675937、`arvalis_2` 0.378352。
 小さい穂の再現率はIoU 0.50で5.96%。最終確認用分割とKaggle提出は未評価。
 [MLflowのアンサンブルRun](http://localhost:5050/#/experiments/1/runs/3600138dbd634b52b2e050d204d9ee51)
 
+同じ条件の推論専用Notebook v1をネット接続なしで実行し、Kaggleのサンプル10枚でCSVを確認。
+終了後の採点に提出した（提出ID `58342094`、提出ソース `98308fd`）。
+学習元は `8fc98f3e68e8441a-0001` と `d31623fdd5114e49-0001`。
+[Kaggle Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-d2-mbv3-wbf040) ·
+[MLflowの提出推論Run](http://localhost:5050/#/experiments/1/runs/6bc49f5820c848789b24245c54089ab0)
+
 ## 2026-11-14 Arvalis Monsの追加データ試行
 
 D2基準の `d31623fdd5114e49-0001` と比較する。同じ初期重み、768px、6 epoch、

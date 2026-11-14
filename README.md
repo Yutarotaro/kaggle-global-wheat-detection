@@ -185,6 +185,8 @@ MLFLOW_DISABLE_TELEMETRY=true uv run --script scripts/ensemble_predictions.py \
 推論はインターネット無効で、学習Notebook出力の重みと依存wheelをSHA-256で照合する。
 検証用の10枚でCSV生成を確認後、Notebookの版を指定して提出する。
 同じNotebook版を提出済みか履歴で照合する。Public・Privateは提出の測定値として記録し、モデル選択には固定検証を使う。
+提出IDごとの記録は `.loop-wheat/inference/<提出ID>.json` に保存する。
+`uv run --locked python scripts/refresh_submission_scores.py` で採点履歴を取り込み、MLflow同期が更新を反映する。
 
 ```bash
 uv run --locked python scripts/build_submission_notebook.py \

@@ -289,6 +289,8 @@ def sync_inference(client, experiment_id, state):
             tags["git_commit"] = record["git_commit"]
         if record.get("parent_trial_ids"):
             tags["parent_trial_ids"] = ",".join(record["parent_trial_ids"])
+        if record.get("status"):
+            tags["kaggle_submission_status"] = record["status"]
         parent = next((run for run in client.search_runs([experiment_id],
                        f"tags.trial_id = '{record['parent_trial_id']}'") if run.data.tags.get("run_kind") == "train"), None)
         if parent:
@@ -306,8 +308,11 @@ def sync_inference(client, experiment_id, state):
         if notebook.is_file() and run.data.tags.get("artifact.notebook") != "true":
             client.log_artifact(run_id, str(notebook))
             client.set_tag(run_id, "artifact.notebook", "true")
-        if run.info.status != "FINISHED":
-            client.set_terminated(run_id, "FINISHED")
+        status = record.get("status", "complete")
+        if status in {"complete", "error"}:
+            terminal = "FINISHED" if status == "complete" else "FAILED"
+            if run.info.status != terminal:
+                client.set_terminated(run_id, terminal)
 
 
 def main():
