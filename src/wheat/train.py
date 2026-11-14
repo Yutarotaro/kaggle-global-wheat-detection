@@ -13,11 +13,12 @@ from pathlib import Path
 import torch
 import torchvision
 from torch.utils.data import DataLoader, Dataset
+from torchvision.transforms import ColorJitter
 
 from data import sha
 from model import create_model
 from preprocess import read_image
-from torchvision.transforms import ColorJitter
+from preview_samples import select_preview_ids
 
 
 class Images(Dataset):
@@ -71,12 +72,25 @@ def validation_loss(model, loader, device, seed):
             module.training = training
 
 
+@torch.inference_mode()
+def predict(model, data, ids, device):
+    model.eval()
+    predictions = {}
+    for image_id in ids:
+        image, _ = read_image(data / "train" / f"{image_id}.jpg", [], 0)
+        result = model([image.to(device)])[0]
+        predictions[image_id] = [[score, *box] for score, box in
+                                 zip(result["scores"].tolist(), result["boxes"].tolist(), strict=True)]
+    return predictions
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--data-source", choices=("competition", "gwhd2020-v4"), default="competition")
     parser.add_argument("--weights", type=Path, help="Predict from a saved checkpoint instead of training.")
     parser.add_argument("--partition", choices=("validation", "holdout"), default="validation")
+    parser.add_argument("--epoch-previews", action="store_true", help="Save predictions for four fixed validation images.")
     args = parser.parse_args()
     if args.partition == "holdout" and not args.weights:
         parser.error("Holdout inference requires an existing checkpoint.")
@@ -180,6 +194,10 @@ def main():
             valid_loader = DataLoader(Images(data, sorted(valid_loss_ids), boxes),
                                       batch_size=config["batch_size"], collate_fn=collate)
         opt = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"])
+        preview_ids = select_preview_ids(inference_ids) if args.epoch_previews else []
+        if preview_ids:
+            preview_dir = out / "epoch-previews"
+            preview_dir.mkdir(exist_ok=True)
         for epoch in range(config["epochs"]):
             model.train()
             loss_total = 0
@@ -194,16 +212,11 @@ def main():
                 progress += f" val_loss {validation_loss(model, valid_loader, device, seed):.5f}"
             print(f"{progress} optimizer_steps {(epoch + 1) * len(loader)}", flush=True)
             torch.save(model.state_dict(), out / "weights.pt")
+            if preview_ids:
+                preview = predict(model, data, preview_ids, device)
+                (preview_dir / f"epoch-{epoch + 1:03d}.json").write_text(json.dumps(preview, allow_nan=False))
 
-    ids = inference_ids
-    model.eval()
-    predictions = {}
-    with torch.inference_mode():
-        for image_id in ids:
-            image, _ = read_image(data / "train" / f"{image_id}.jpg", [], 0)
-            pred = model([image.to(device)])[0]
-            predictions[image_id] = [[score, *box] for score, box in
-                                     zip(pred["scores"].tolist(), pred["boxes"].tolist(), strict=True)]
+    predictions = predict(model, data, inference_ids, device)
     (out / "predictions.json").write_text(json.dumps({"images": predictions, "environment": {
         "python": platform.python_version(), "torch": torch.__version__, "torchvision": torchvision.__version__,
         "device": str(device), "cuda": torch.version.cuda,

@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.12,<3.13"
-# dependencies = ["mlflow==3.18.0"]
+# dependencies = ["mlflow==3.18.0", "pillow>=10.4,<13"]
 # ///
 """Mirror wheat Loop trials and epoch losses into a local MLflow experiment."""
 
@@ -23,6 +23,9 @@ from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 
 PROJECT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT / "src/wheat"))
+from render_previews import render_previews
+
 COMPETITION = "global-wheat-detection"
 TERMINAL = {"succeeded": "FINISHED", "failed": "FAILED", "interrupted": "KILLED"}
 NUMBER = r"\d+(?:\.\d+)?(?:[eE][+-]?\d+)?"
@@ -124,7 +127,10 @@ def sync(client, experiment_id, records, live):
                                        tags={"trial_id": trial_id})
         run_id = run.info.run_id
         folder = root / "artifacts" / trial_id
-        log = folder / f"ml-loop-{trial_id}.log"
+        handle = trial.get("handle") or ""
+        kernel = KERNEL.fullmatch(handle)
+        slug = handle.split("/")[1] if kernel else f"ml-loop-{trial_id}"
+        log = folder / f"{slug}.log"
         metrics = []
         losses = epoch_losses(live.path(trial_id)) | epoch_losses(log)
         observed = int(time.time() * 1000)
@@ -156,7 +162,15 @@ def sync(client, experiment_id, records, live):
                 condition += "-hflip"
         run_name = f"train/{condition}/{trial_id}" if condition else f"train/{trial_id}"
         conditions = "、".join(f"{key}={value}" for key, value in params.items() if key != "run_label")
+        notebook_link = ""
+        notebook_tags = {}
+        if kernel:
+            notebook, version = handle.rsplit("/", 1)
+            url = f"https://www.kaggle.com/code/{notebook}"
+            notebook_link = f"[Kaggle Notebook（Version {version}）]({url}) · 実行ID `{handle}`"
+            notebook_tags = {"kaggle_notebook": url, "kaggle_version": version, "kaggle_handle": handle}
         description = "\n\n".join(part for part in (
+            notebook_link,
             f"Kaggle GPU学習。{conditions}。",
             trial.get("hypothesis"), trial.get("change"),
             "検証: 撮影元で固定したvalidation。評価基準: Wheat Image Precision。",
@@ -170,15 +184,16 @@ def sync(client, experiment_id, records, live):
             "loop_session_status": session["status"],
             "comparison_group": comparison,
             "completed_epochs": str(max(losses, default=0)),
+            **notebook_tags,
         }
+        if trial.get("git_commit") or not session.get("working_tree", False):
+            tags["git_commit"] = trial.get("git_commit") or session["head"]
+            tags["git_commit_scope"] = "trial" if trial.get("git_commit") or trial["number"] == 1 else "session_base"
+        else:
+            tags["git_base_commit"] = session["head"]
         for field in ("parent_id", "source_digest", "hypothesis", "change", "detail"):
             if trial.get(field):
                 tags[field] = trial[field][:4000]
-        if trial.get("handle") and KERNEL.fullmatch(trial["handle"]):
-            notebook, version = trial["handle"].rsplit("/", 1)
-            tags["kaggle_notebook"] = f"https://www.kaggle.com/code/{notebook}"
-            tags["kaggle_version"] = version
-
         new_tags = [RunTag(key, value) for key, value in tags.items() if run.data.tags.get(key) != value]
         new_params = [Param(key, str(value)) for key, value in params.items() if key not in run.data.params]
         if new_tags or new_params or metrics:
@@ -194,6 +209,18 @@ def sync(client, experiment_id, records, live):
                 if path.is_file() and run.data.tags.get(tag) != "true":
                     client.log_artifact(run_id, str(path))
                     client.set_tag(run_id, tag, "true")
+            predictions = folder / "predictions.json"
+            if status == "succeeded" and predictions.is_file() and run.data.tags.get("artifact.previews") != "true":
+                expected = params["epochs"] if "--epoch-previews" in session["spec"]["task"]["train"] else 0
+                try:
+                    render_previews(PROJECT, folder, expected)
+                except (OSError, ValueError, KeyError) as exc:
+                    client.set_tag(run_id, "preview_error", str(exc))
+                else:
+                    client.log_artifacts(run_id, str(folder / "validation-previews"), "validation-previews")
+                    if "preview_error" in run.data.tags:
+                        client.delete_tag(run_id, "preview_error")
+                    client.set_tag(run_id, "artifact.previews", "true")
             end = int(trial.get("completed_at", trial["started_at"]) * 1000)
             if run.info.status != TERMINAL[status]:
                 client.set_terminated(run_id, TERMINAL[status], end_time=end)
@@ -206,15 +233,24 @@ def sync_inference(client, experiment_id, state):
         submission_id = str(int(record["submission_id"]))
         matches = client.search_runs([experiment_id], f"tags.submission_id = '{submission_id}'")
         name = f"infer/{record['run_label']}/{submission_id}"
+        notebook_link = f"[Kaggle Notebook（Version {record['version']}）]({record['notebook']})"
         tags = {"run_kind": "infer", "submission_id": submission_id,
                 "parent_trial_id": record["parent_trial_id"], "kaggle_notebook": record["notebook"],
-                "kaggle_version": str(record["version"]), "mlflow.note.content": record["description"]}
+                "kaggle_version": str(record["version"]),
+                "mlflow.note.content": f"{notebook_link}\n\n{record['description']}"}
+        parent = next((run for run in client.search_runs([experiment_id],
+                       f"tags.trial_id = '{record['parent_trial_id']}'") if run.data.tags.get("run_kind") == "train"), None)
+        if parent:
+            tags["mlflow.parentRunId"] = parent.info.run_id
+            if parent.data.tags.get("git_commit"):
+                tags["training_git_commit"] = parent.data.tags["git_commit"]
         run = matches[0] if matches else client.create_run(experiment_id, run_name=name, tags=tags)
         run_id = run.info.run_id
         metrics = [Metric(key, value, int(time.time() * 1000), 0) for key, value in record["scores"].items()
                    if key not in run.data.metrics]
-        if metrics:
-            client.log_batch(run_id, metrics=metrics, synchronous=True)
+        new_tags = [RunTag(key, value) for key, value in tags.items() if run.data.tags.get(key) != value]
+        if metrics or new_tags:
+            client.log_batch(run_id, metrics=metrics, tags=new_tags, synchronous=True)
         notebook = PROJECT / "notebooks" / record["source_notebook"]
         if notebook.is_file() and run.data.tags.get("artifact.notebook") != "true":
             client.log_artifact(run_id, str(notebook))

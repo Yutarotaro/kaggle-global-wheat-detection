@@ -19,6 +19,14 @@ KaggleのTesla T4でMobileNetV3 Faster R-CNNを画像サイズ640、3 epoch、�
 各実験のコードは実行ディレクトリ内の `artifacts/<trial-id>/bundle/experiment.ipynb` を参照する。
 旧方式の実験は、送信済みのバンドルからNotebookを復元した。元の実行やスコアとは区別して参照する。
 
+## 2026-11-14: 12 epochのGPU学習
+
+`8fc98f3e68e8441a-0001` は640px、バッチ4、横反転確率0.50、シード42で12 epoch学習し、
+固定検証で **0.512961**。valid lossの最小値はepoch 4の0.96384で、epoch 12は1.01663。
+各epochの検出スコアは採点していない。次の比較では6 epochを基準にする。
+保存済み検証予測のconfidenceを0.30から0.50へ上げると探索用検証スコアは **0.525791**。
+同じ検証分割での調整結果で、holdoutは未評価。
+
 ## 2026-11-14: GWHD 2020 v4のローカル接続確認
 
 [公式公開版（Zenodo 4298502）](https://zenodo.org/records/4298502)の注釈付き画像から、

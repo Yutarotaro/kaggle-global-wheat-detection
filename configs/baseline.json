@@ -1,7 +1,7 @@
 {
   "image_size": 640,
-  "run_label": "mbv3-12e-640-hflip",
-  "epochs": 12,
+  "run_label": "mbv3-6e-640-hflip",
+  "epochs": 6,
   "batch_size": 4,
   "learning_rate": 0.0001,
   "horizontal_flip": 0.5,

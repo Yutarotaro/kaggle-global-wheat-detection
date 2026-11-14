@@ -103,7 +103,8 @@ Loopリポジトリ側で`uv sync --locked --no-editable`を実行する。
 ../ml-research-loop/.venv/bin/ml-loop run --project . --state .loop-wheat --budget 4h --baseline BASELINE_RUN
 ```
 
-現在の `loop.toml` では、12 epoch・640px・横反転を基準に、色補正と上下反転をそれぞれ試す。
+現在の `loop.toml` では、12 epochの基準試行で観測したvalid lossを踏まえ、
+6 epoch・640px・横反転を基準に、色補正と上下反転をそれぞれ試す。
 固定検証の `wheat_image_precision` の目標は `0.90`。1試行最大45分で、比較単位をそろえてから次の候補を試す。
 
 学習はprivateのKaggleカーネルで行う。TorchVisionの公開事前学習済み重みを取得するため、
@@ -117,7 +118,7 @@ Loopリポジトリ側で`uv sync --locked --no-editable`を実行する。
 
 [MLflowの実験一覧](http://localhost:5050)で `global-wheat-detection` を開く。
 コンペごとに1つのExperimentを使う。学習は `train/<条件>/<試行ID>`、提出推論は
-`infer/<条件>/<提出ID>`。RunのDescriptionに仮説、変更した条件、評価分割を記録する。
+`infer/<条件>/<提出ID>`。RunのDescriptionにKaggle Notebookへのリンク、バージョン、実験条件を記録する。
 Kaggleの新規Notebookも `wheat-train-<条件>-<試行IDのハッシュ>` と `wheat-infer-<条件>` で分ける。
 一覧の `loop_status` は準備・実行・評価・終了の状態を示す。Runの `train_loss` はepochごとの学習loss、
 `valid_loss` は固定の検証データで測ったloss、`optimizer_steps` は累積更新回数。
@@ -142,6 +143,9 @@ MLFLOW_DISABLE_TELEMETRY=true uv run --script scripts/track_mlflow.py --watch
 ```
 
 完了済みRunのArtifactsには評価結果、ログ、実行コードのNotebookを保存する。
+`validation-previews/epoch-*` には固定の検証画像4枚の正解枠と予測枠を保存する。
+途中epochの予測を保存していない過去の実験には `validation-previews/final` を表示する。
+提出推論は重みを生成した学習Runのchildになる。`git_commit` は実行ソースのコミットを示す。
 分割・画像・予測・重みの保管先は従来どおり `.loop-wheat/`。同期はLoopの状態データを読み取るため、同じ試行IDで再開できる。
 
 合格候補を選んだ後に限り、その試行のソースと重みを使ってローカルで
@@ -159,8 +163,8 @@ Kaggleのスコアとは比較しない。`data/gwhd2020-v4/`に分離し、未�
 全データの実験には `loop.gwhd2020.toml` を使う。公式アーカイブを
 `scripts/prepare_gwhd2020.py` で変換し、撮影元別の分割を固定する。Kaggleの非公開データセット
 には学習・検証画像と学習用注釈を入れる。検証の正解注釈と最終確認用データはローカルに残す。
-実験時に未コミットの変更がある場合は、`ml-loop run --working-tree` で無視対象を除いた
-ソースを固定し、コミットせずに実行できる。
+実験前にコードと設定をコミットし、作業ツリーをcleanにする。改善試行のコミットは
+ローカルの `refs/ml-loop/trials/` に記録し、作業ブランチを切り替えずに参照できる。
 
 ## Gitの運用
 

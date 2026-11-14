@@ -1,5 +1,6 @@
 seed = 42
 target_score = 0.9
+require_trial_commits = true
 runtime_s = 2700
 agent_s = 600
 smoke_s = 120
@@ -19,11 +20,11 @@ research_brief = "Target 0.90 on the fixed validation competition metric. Use th
 
 [[agent.variants]]
 hypothesis = "Moderate color jitter helps transfer between fields with different lighting."
-overrides = {run_label = "mbv3-12e-640-color15", color_jitter = 0.15}
+overrides = {run_label = "mbv3-6e-640-color15", color_jitter = 0.15}
 
 [[agent.variants]]
 hypothesis = "Vertical flipping improves robustness to camera orientation."
-overrides = {run_label = "mbv3-12e-640-vflip50", vertical_flip = 0.5}
+overrides = {run_label = "mbv3-6e-640-vflip50", vertical_flip = 0.5}
 
 [executor]
 type = "kaggle"
@@ -40,7 +41,7 @@ type = "command"
 interpreter = ".venv/bin/python"
 metric = "wheat_image_precision"
 direction = "max"
-train = ["python", "src/wheat/train.py"]
+train = ["python", "src/wheat/train.py", "--epoch-previews"]
 smoke = ["python", "src/wheat/train.py", "--smoke"]
 evaluate = ["python", "src/wheat/evaluate.py"]
 dataset_manifest = "data/prepared/split.json"

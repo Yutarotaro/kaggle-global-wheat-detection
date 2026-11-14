@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "src/wheat"))
 from data import load_dataset, sha, split_dataset
 from evaluate import evaluate
 from metric import image_score, match
+from render_previews import render_previews
 
 
 def test_metric_penalizes_duplicates_and_respects_confidence():
@@ -64,6 +65,35 @@ def test_independent_evaluator_rejects_missing_and_invalid_predictions(dataset):
     predictions.write_text(json.dumps({"images": {k: [[float("nan"), 2, 3, 12, 11]] for k in ids}, "environment": {}}))
     with pytest.raises(ValueError, match="finite"):
         evaluate(dataset, manifest, out, "validation")
+
+
+def test_epoch_previews_require_all_epochs_and_use_the_same_samples(dataset):
+    project = dataset / "project"
+    raw = project / "data/raw"
+    raw.mkdir(parents=True)
+    (dataset / "train").rename(raw / "train")
+    (dataset / "train.csv").rename(raw / "train.csv")
+    rows, hashes = load_dataset(raw)
+    partitions = split_dataset(rows, hashes)
+    manifest = {"partitions": partitions, "csv_sha256": sha(raw / "train.csv"), "images": hashes}
+    prepared = project / "data/prepared"
+    prepared.mkdir()
+    (prepared / "split.json").write_text(json.dumps(manifest))
+    artifacts = dataset / "result"
+    epochs = artifacts / "epoch-previews"
+    epochs.mkdir(parents=True)
+    ids = partitions["validation"]
+    (epochs / "epoch-001.json").write_text(json.dumps(dict.fromkeys(ids, [])))
+    with pytest.raises(ValueError, match="Expected 2"):
+        render_previews(project, artifacts, 2)
+    (epochs / "epoch-002.json").write_text(json.dumps(dict.fromkeys(ids, [[0.9, 2, 3, 12, 11]])))
+    render_previews(project, artifacts, 2)
+    for epoch in (1, 2):
+        paths = list((artifacts / f"validation-previews/epoch-{epoch:03d}").glob("*.jpg"))
+        assert {path.stem for path in paths} == set(ids)
+        for path in paths:
+            with Image.open(path) as image:
+                image.verify()
 
 
 def test_public_archive_conversion_preserves_sources_and_excludes_unlabelled(tmp_path):

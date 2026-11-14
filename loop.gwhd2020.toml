@@ -1,4 +1,5 @@
 seed = 42
+require_trial_commits = true
 runtime_s = 2700
 agent_s = 600
 smoke_s = 120
