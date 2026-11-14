@@ -144,6 +144,9 @@ D2基準の `d31623fdd5114e49-0001` と比較する。同じ初期重み、768px
 [取得・選定記録](data-profile.md#追加データの取得と選定) ·
 [Kaggleの追加データ](https://www.kaggle.com/datasets/yutarotaro/gwhd2021-mons-wheat)
 
+初回の実行 `6e58debdff994e7d` は、文書の図をNotebookソースとして読み込もうとしたため、
+Kaggle投入前に停止した。文書の図を同梱対象から外す設定を追加した上で、別の実行IDでやり直す。
+
 ```bash
 ../ml-research-loop/.venv/bin/ml-loop run --project . --config loop.efficientdet-mons.toml \
   --state .loop-wheat --budget 2h --trials 1

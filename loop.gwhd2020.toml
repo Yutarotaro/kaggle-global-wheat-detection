@@ -13,6 +13,7 @@ aggregate_only = true
 
 [executor]
 type = "kaggle"
+notebook_exclude_dirs = ["docs/figures"]
 owner = "yutarotaro"
 binary = ".venv/bin/kaggle"
 dataset_sources = ["yutarotaro/ml-loop-gwhd2020-v4"]

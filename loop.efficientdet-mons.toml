@@ -24,6 +24,7 @@ competition = "global-wheat-detection"
 dataset_sources = ["yutarotaro/gwhd2021-mons-wheat"]
 notebook_prefix = "wheat-train"
 notebook_label_file = "configs/efficientdet-mons.json"
+notebook_exclude_dirs = ["docs/figures"]
 accelerator = "NvidiaTeslaT4"
 internet = true
 

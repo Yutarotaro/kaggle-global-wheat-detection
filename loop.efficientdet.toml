@@ -26,6 +26,7 @@ binary = ".venv/bin/kaggle"
 competition = "global-wheat-detection"
 notebook_prefix = "wheat-train"
 notebook_label_file = "configs/efficientdet.json"
+notebook_exclude_dirs = ["docs/figures"]
 accelerator = "NvidiaTeslaT4"
 internet = true
 
