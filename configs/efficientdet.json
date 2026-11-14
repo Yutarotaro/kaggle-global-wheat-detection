@@ -1,14 +1,14 @@
 {
   "detector": "efficientdet-d2",
   "image_size": 768,
-  "run_label": "effdet-d2-6e-768",
+  "run_label": "effdet-d2-6e-768-mosaic50",
   "epochs": 6,
   "batch_size": 4,
   "learning_rate": 0.0001,
   "horizontal_flip": 0.5,
   "vertical_flip": 0,
   "color_jitter": 0,
-  "mosaic": 0,
+  "mosaic": 0.5,
   "validation_loss": true,
   "confidence": 0.3,
   "nms": 0.5
