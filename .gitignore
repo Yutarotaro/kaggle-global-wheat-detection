@@ -42,3 +42,6 @@ models/*
 *.png
 *.tif
 *.tiff
+
+.loop/
+.loop-wheat/

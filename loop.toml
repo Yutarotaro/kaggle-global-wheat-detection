@@ -1,0 +1,29 @@
+seed = 42
+runtime_s = 2700
+agent_s = 600
+smoke_s = 120
+evaluate_s = 300
+poll_s = 10
+editable = ["configs/baseline.json", "src/wheat/model.py", "src/wheat/preprocess.py", "src/wheat/train.py"]
+
+[agent]
+type = "codex"
+
+[executor]
+type = "kaggle"
+owner = "yutarotaro"
+binary = ".venv/bin/kaggle"
+competition = "global-wheat-detection"
+accelerator = "NvidiaTeslaT4"
+internet = true
+
+[task]
+type = "command"
+interpreter = ".venv/bin/python"
+metric = "wheat_image_precision"
+direction = "max"
+train = ["python", "src/wheat/train.py"]
+smoke = ["python", "src/wheat/train.py", "--smoke"]
+evaluate = ["python", "src/wheat/evaluate.py"]
+dataset_manifest = "data/prepared/split.json"
+remote_inputs = ["data/prepared/split.json"]

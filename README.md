@@ -9,23 +9,16 @@
 
 ## 現在の段階
 
-プロジェクト基盤の準備段階。データ取得、可視化スクリプト、検証分割、評価実装、モデル学習はまだ行っていない。
-PyTorchと検出ライブラリは、データ確認とモデル選定後に追加する。
-
-2026-11-14に確認済み:
-
-- Python 3.12環境の構築、初期依存のimport、画像の描画と読み込み。
-- Kaggle CLI 2.2.5の起動と、設定済み認証を使った小麦コンペのファイル一覧取得。
-- GitHubリポジトリのprivate設定とローカルのorigin接続。
-
-データ本体のダウンロード可否とKaggle GPUの利用枠はまだ確認していない。
+[ML Research Loop](https://github.com/Yutarotaro/ml-research-loop)に接続済み。
+固定分割、採点、GPU向け学習・推論、独立評価によるエラー画像出力を実装した。
+合成画像でCPU学習から採点までを検証済み。実コンペの注釈CSVの取得は403で、実データの学習と4時間の実験は未実施。
 
 ## 環境
 
 Python 3.12を使用する。依存パッケージの解決結果は`uv.lock`に保存する。
 
 ```bash
-uv sync --locked --group kaggle
+uv sync --locked --group kaggle --group wheat
 ```
 
 標準のuvキャッシュに書き込めない環境では、コマンドの前に
@@ -82,14 +75,42 @@ uv run --locked --group kaggle kaggle competitions download \
 乱数シードの初期値は`42`。時刻はUTCのタイムゾーン付きで記録する。
 コンペの評価方法は一般的なCOCO mAPと異なるため、ライブラリ標準値で代用しない。
 
-## Kaggleでの学習
+## Kaggleでの学習と自走
 
-API経由でローカルのスクリプトまたはNotebookと`kernel-metadata.json`を送信する。
-Kaggleの実行設定はprivateとし、コンペの入力は`competition_sources`から参照する。
-現在はまだ実行ファイルを作っていない。認証・GPU利用枠の確認後に準備する。
+Kaggleのデータ利用条件を確認し、`data/raw/`直下に`train.csv`と`train/*.jpg`を展開する。
+先に固定分割を作成する。同じ撮影元や同一画像を別の分割に置かない。
+`data/prepared/split.json`には画像ハッシュと分割情報が含まれる。共有・Git管理はしない。
 
-モデルや結果を`/kaggle/working/`に保存し、実行完了後にローカルへ取得する。
-ローカルの`uv.lock`とKaggleの事前構築環境は同一ではないため、実行時のライブラリバージョンも記録する。
+```bash
+uv sync --locked --group kaggle --group wheat
+uv run --locked --group kaggle --group wheat python src/wheat/data.py
+uv run --locked --group kaggle --group wheat python src/wheat/train.py --smoke
+```
+
+Loopリポジトリ側で`uv sync --locked --no-editable`を実行する。
+未コミットのプロジェクト変更を整理し、次を小麦リポジトリから実行する。
+
+```bash
+../ml-research-loop/.venv/bin/ml-loop doctor --project .
+../ml-research-loop/.venv/bin/ml-loop run --project . --state .loop-wheat --budget 1h --trials 1
+```
+
+実行ディレクトリの`report`でベースラインのスコアを確認する。
+次に、得られた実行ディレクトリを`--baseline`へ渡す。
+
+```bash
+../ml-research-loop/.venv/bin/ml-loop run --project . --state .loop-wheat --budget 4h --baseline BASELINE_RUN
+```
+
+学習はprivateのKaggleカーネルで行う。TorchVisionの公開事前学習済み重みを取得するため、
+既定では学習カーネルのネット接続を許可する。データ本体はコンペ入力としてKaggleに接続し、
+認証情報は学習コードに渡さない。検証の予測はローカルの固定評価コードで採点する。
+`stop`は新規実験を止める。Kaggle上で既に開始したジョブは時間上限まで回収する。
+
+合格候補を選んだ後に限り、その試行のソースと重みを使ってローカルで
+`train.py --weights PATH --partition holdout`を実行し、別の成果物ディレクトリで
+`evaluate.py --partition holdout`を実行する。両コマンドに`ML_LOOP_PROJECT`と
+`ML_LOOP_ARTIFACTS`を渡す。自走中にholdoutは採点しない。
 
 ## Gitの運用
 

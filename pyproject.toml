@@ -12,10 +12,17 @@ dependencies = [
 ]
 
 [dependency-groups]
+dev = [
+    "pytest>=8,<10",
+]
 kaggle = [
     "kaggle>=2.2.5,<3",
     # Kaggle 2.2.5 imports six without declaring it as a dependency.
     "six>=1.16,<2",
+]
+wheat = [
+    "torch>=2.7,<3",
+    "torchvision>=0.22,<1",
 ]
 
 [tool.uv]
