@@ -4,7 +4,18 @@
 元の固定分割では、注釈と撮影元がCSVにない49枚を除外している。最終確認用の分割は集計対象外。
 「穂数」は画像内の正解枠の数。P90は画像ごとの穂数の90パーセンタイル（線形補間）。
 
+## データ分割と集計の流れ
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="figures/wheat-data-flow-dark.png">
+  <img src="figures/wheat-data-flow.png" alt="Kaggleの画像と注釈を確認し、撮影元別に学習2,002枚・探索用検証636枚・最終確認用735枚へ分割。学習と探索用検証を分布集計に使う。">
+</picture>
+
+フロー図は [stack-diagram](https://github.com/caru-ini/stack-diagram/tree/9175bde8449cc8f5390d6eb72ecc2e1f5bfe21f3) で作成。アイコンは Kaggle と [Lucide](https://lucide.dev/)。
+
 ## 撮影元と穂数
+
+![撮影元別の画像枚数。学習はarvalis_1が1,055枚、ethz_1が747枚、usask_1が200枚。検証はarvalis_2が204枚、rres_1が432枚。](figures/wheat-data-sources.png)
 
 | 分割 | 撮影元 | 画像枚数 | 注釈数 | 穂数の中央値 | P90 | 25本未満の画像 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
@@ -17,6 +28,8 @@
 | 検証 | `rres_1` | 432 | 20,236 | 47.5 | 63 | 17 (3.9%) |
 
 ## 1枚あたりの穂数の分布
+
+![穂数の区間ごとの画像割合を、分割全体と撮影元別の100%積み上げ棒で比較。arvalis_2では25本未満が76.5%。](figures/wheat-data-head-counts.png)
 
 表の値は各区間の画像枚数。
 
@@ -33,6 +46,8 @@
 ## 正解枠の面積の分布
 
 各正解枠の面積を画像面積で割り、既存の評価と同じ境界で区分した。表の値は各区間の注釈数。
+
+![画像面積比で区分した正解枠の割合を、分割全体と撮影元別の100%積み上げ棒で比較。](figures/wheat-data-box-areas.png)
 
 | 分割 | 撮影元 | 0.2%未満 | 0.2%以上・1%未満 | 1%以上 |
 | --- | --- | ---: | ---: | ---: |
@@ -54,6 +69,7 @@
 
 ```bash
 uv run --locked python scripts/profile_wheat_data.py --output outputs/data-profile/summary.json
+uv run --locked python scripts/plot_wheat_data_profile.py outputs/data-profile/summary.json --output docs/figures
 ```
 
 集計時の固定分割のSHA-256は `53da7a99e83694f2d0f706a19bb7f9675f23d29b767126c4dc16755aa777710f`。

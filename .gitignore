@@ -43,5 +43,8 @@ models/*
 *.tif
 *.tiff
 
+# Diagrams and aggregate plots embedded in the data profile.
+!docs/figures/wheat-data-*.png
+
 .loop/
 .loop-wheat/
