@@ -107,6 +107,15 @@ Loopリポジトリ側で`uv sync --locked --no-editable`を実行する。
 6 epoch・640px・横反転を基準に、色補正と上下反転をそれぞれ試す。
 固定検証の `wheat_image_precision` の目標は `0.90`。1試行最大45分で、比較単位をそろえてから次の候補を試す。
 
+EfficientDetとMosaicを比較する場合は、同じ固定検証で次を実行する。
+EfficientDet-D2を768pxで6 epoch学習し、横反転のみと、Mosaicを確率0.50で追加した条件を順に比較する。
+
+```bash
+uv sync --locked --group kaggle --group wheat
+../ml-research-loop/.venv/bin/ml-loop run --project . --config loop.efficientdet.toml \
+  --state .loop-wheat --budget 4h --trials 2
+```
+
 学習はprivateのKaggleカーネルで行う。TorchVisionの公開事前学習済み重みを取得するため、
 既定では学習カーネルのネット接続を許可する。データ本体はコンペ入力としてKaggleに接続し、
 認証情報は学習コードに渡さない。検証の予測はローカルの固定評価コードで採点する。

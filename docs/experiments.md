@@ -72,6 +72,11 @@ DungNBの1位解法は、外部データを組み込んだ学習、MosaicとMixU
 [1位の公開コード](https://github.com/dungnb1333/Global-Wheat-Dection-1st-Place) ·
 [主催者による分析](https://pmc.ncbi.nlm.nih.gov/articles/PMC10795497/)
 
+次の比較は `loop.efficientdet.toml` で実行する。COCO重みからEfficientDet-D2を768pxで
+6 epoch学習し、12 epochの640px MobileNetV3を参照値とする。この比較には検出器、解像度、
+エポック数の差がある。続く試行はD2の基準Runを親にし、Mosaicの確率だけを0から0.50へ変更する。
+固定検証の全体、撮影元別、小さい穂の再現率を記録する。
+
 ## 2026-11-14: GWHD 2020 v4のローカル接続確認
 
 [公式公開版（Zenodo 4298502）](https://zenodo.org/records/4298502)の注釈付き画像から、

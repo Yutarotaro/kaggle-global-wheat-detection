@@ -8,6 +8,7 @@ import os
 import platform
 import random
 from collections import defaultdict
+from importlib.metadata import version
 from pathlib import Path
 
 import torch
@@ -17,14 +18,15 @@ from torchvision.transforms import ColorJitter
 
 from data import sha
 from model import create_model
-from preprocess import read_image
+from preprocess import mosaic, read_image
 from preview_samples import select_preview_ids
 
 
 class Images(Dataset):
-    def __init__(self, root, ids, boxes, flip=0, vertical_flip=0, color_jitter=0):
+    def __init__(self, root, ids, boxes, flip=0, vertical_flip=0, color_jitter=0, mosaic_probability=0):
         self.root, self.ids, self.boxes, self.flip = root, ids, boxes, flip
         self.vertical_flip = vertical_flip
+        self.mosaic_probability = mosaic_probability
         self.color_jitter = (ColorJitter(brightness=color_jitter, contrast=color_jitter,
                                         saturation=color_jitter) if color_jitter else None)
 
@@ -32,6 +34,12 @@ class Images(Dataset):
         return len(self.ids)
 
     def __getitem__(self, i):
+        if self.mosaic_probability and random.random() < self.mosaic_probability:
+            partners = random.sample(range(len(self.ids) - 1), 3)
+            return mosaic([self.load(i), *(self.load(j + (j >= i)) for j in partners)])
+        return self.load(i)
+
+    def load(self, i):
         key = self.ids[i]
         return read_image(self.root / "train" / f"{key}.jpg", self.boxes.get(key, []),
                           self.flip, self.vertical_flip, self.color_jitter)
@@ -57,8 +65,11 @@ def validation_loss(model, loader, device, seed):
     cuda_devices = [device.index] if device.type == "cuda" else []
     try:
         model.eval()
-        for module in (model, model.rpn, model.roi_heads):
-            module.training = True
+        if hasattr(model, "rpn"):
+            for module in (model, model.rpn, model.roi_heads):
+                module.training = True
+        else:
+            model.loss_bench.training = True
         with torch.random.fork_rng(devices=cuda_devices):
             torch.random.default_generator.manual_seed(seed)
             if cuda_devices:
@@ -87,6 +98,7 @@ def predict(model, data, ids, device):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument("--config", type=Path, default=Path("configs/baseline.json"))
     parser.add_argument("--data-source", choices=("competition", "gwhd2020-v4"), default="competition")
     parser.add_argument("--weights", type=Path, help="Predict from a saved checkpoint instead of training.")
     parser.add_argument("--partition", choices=("validation", "holdout"), default="validation")
@@ -94,10 +106,13 @@ def main():
     args = parser.parse_args()
     if args.partition == "holdout" and not args.weights:
         parser.error("Holdout inference requires an existing checkpoint.")
-    config = json.loads(Path("configs/baseline.json").read_text())
+    config = json.loads(args.config.read_text())
     config.setdefault("vertical_flip", 0)
     config.setdefault("color_jitter", 0)
     config.setdefault("validation_loss", False)
+    config.setdefault("mosaic", 0)
+    if not 0 <= config["mosaic"] <= 1:
+        raise ValueError("Mosaic probability must be in [0, 1].")
     assert 0 <= config["horizontal_flip"] <= 1
     assert 0 <= config["vertical_flip"] <= 1 and 0 <= config["color_jitter"] <= 1
     assert 0 < config["confidence"] < 1 and 0 < config["nms"] < 1
@@ -109,14 +124,17 @@ def main():
     if args.smoke:
         torch.set_num_threads(2)
         model = create_model(config, pretrained=False)
-        sample = [torch.zeros(3, 256, 256)]
-        labels = [{"boxes": torch.tensor([[30., 30., 160., 150.]]), "labels": torch.tensor([1])}]
+        sample = [torch.zeros(3, 256, 256) for _ in range(2)]
+        labels = [{"boxes": torch.tensor([[30., 30., 160., 150.]]), "labels": torch.tensor([1])}
+                  for _ in sample]
+        if config["mosaic"]:
+            sample[0], labels[0] = mosaic([(sample[0], labels[0])] * 4)
         loss = sum(model(sample, labels).values())
         if not torch.isfinite(loss):
             raise ValueError("Smoke loss is not finite.")
         loss.backward()
         if config["validation_loss"]:
-            validation_loss(model, DataLoader([(sample[0], labels[0])], collate_fn=collate),
+            validation_loss(model, DataLoader(list(zip(sample, labels, strict=True)), collate_fn=collate),
                             torch.device("cpu"), seed)
         model.eval()
         with torch.inference_mode():
@@ -183,8 +201,10 @@ def main():
     if args.weights:
         model.load_state_dict(torch.load(args.weights, map_location=device, weights_only=True))
     else:
+        if config["mosaic"] and len(train_ids) < 4:
+            raise ValueError("Mosaic requires at least four training images.")
         loader = DataLoader(Images(data, sorted(train_ids), boxes, config["horizontal_flip"],
-                                   config["vertical_flip"], config["color_jitter"]),
+                                   config["vertical_flip"], config["color_jitter"], config["mosaic"]),
                             batch_size=config["batch_size"], shuffle=True, collate_fn=collate,
                             generator=torch.Generator().manual_seed(seed))
         valid_loader = None
@@ -217,11 +237,14 @@ def main():
                 (preview_dir / f"epoch-{epoch + 1:03d}.json").write_text(json.dumps(preview, allow_nan=False))
 
     predictions = predict(model, data, inference_ids, device)
-    (out / "predictions.json").write_text(json.dumps({"images": predictions, "environment": {
+    environment = {
         "python": platform.python_version(), "torch": torch.__version__, "torchvision": torchvision.__version__,
         "device": str(device), "cuda": torch.version.cuda,
         "gpu": torch.cuda.get_device_name(0) if device.type == "cuda" else None,
-    }}, allow_nan=False))
+    }
+    if config.get("detector") == "efficientdet-d2":
+        environment.update(effdet=version("effdet"), timm=version("timm"))
+    (out / "predictions.json").write_text(json.dumps({"images": predictions, "environment": environment}, allow_nan=False))
 
 
 if __name__ == "__main__":

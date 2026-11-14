@@ -21,6 +21,8 @@ kaggle = [
     "six>=1.16,<2",
 ]
 wheat = [
+    "effdet==0.4.1",
+    "timm==1.0.22",
     "torch>=2.7,<3",
     "torchvision>=0.22,<1",
 ]

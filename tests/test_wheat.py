@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import torch
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "src/wheat"))
@@ -11,7 +12,21 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "src/wheat"))
 from data import load_dataset, sha, split_dataset
 from evaluate import evaluate
 from metric import image_score, match
+from preprocess import mosaic
 from render_previews import render_previews
+
+
+def test_mosaic_clips_and_translates_boxes(monkeypatch):
+    monkeypatch.setattr("preprocess.random.randint", lambda a, b: 4)
+    samples = [
+        (torch.full((3, 8, 8), i), {"boxes": torch.tensor([[1., 1., 6., 6.]]),
+                                  "labels": torch.tensor([i + 1])})
+        for i in range(4)
+    ]
+    image, target = mosaic(samples)
+    assert [image[0, y, x].item() for y, x in ((0, 0), (0, 7), (7, 0), (7, 7))] == [0, 1, 2, 3]
+    assert target["boxes"].tolist() == [[0, 0, 2, 2], [5, 0, 8, 2], [0, 5, 2, 8], [5, 5, 8, 8]]
+    assert target["labels"].tolist() == [1, 2, 3, 4]
 
 
 def test_metric_penalizes_duplicates_and_respects_confidence():

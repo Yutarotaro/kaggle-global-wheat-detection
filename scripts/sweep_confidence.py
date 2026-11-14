@@ -38,12 +38,14 @@ def score_cutoffs(predictions, labels, cutoffs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trial_artifacts", type=Path)
+    parser.add_argument("--config", type=Path, default=Path("configs/baseline.json"),
+                        help="Training config relative to the trial's frozen source.")
     parser.add_argument("--cutoffs", type=float, nargs="+", default=[0.30, 0.40, 0.50, 0.55, 0.60, 0.65, 0.70])
     args = parser.parse_args()
     if any(not math.isfinite(cutoff) or not 0 <= cutoff <= 1 for cutoff in args.cutoffs):
         parser.error("Confidence cutoffs must be in [0, 1].")
     artifacts = args.trial_artifacts.resolve()
-    config = artifacts.parent.parent / "sources" / artifacts.name / "configs/baseline.json"
+    config = artifacts.parent.parent / "sources" / artifacts.name / args.config
     floor = json.loads(config.read_text())["confidence"]
     if min(args.cutoffs) < floor:
         parser.error(f"Predictions were already filtered at {floor}; all cutoffs must be at least {floor}.")

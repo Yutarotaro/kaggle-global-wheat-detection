@@ -151,7 +151,8 @@ def sync(client, experiment_id, records, live):
                                for name, value in details.get(group, {}).items()
                                if type(value) in (int, float) and math.isfinite(value))
 
-        config = root / "sources" / trial_id / "configs/baseline.json"
+        config_name = session["spec"]["executor"].get("notebook_label_file", "configs/baseline.json")
+        config = root / "sources" / trial_id / config_name
         params = {"seed": session["spec"]["seed"]}
         if trial.get("source_digest") and config.is_file():
             params.update(json.loads(config.read_text(encoding="utf-8")))

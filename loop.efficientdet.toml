@@ -1,0 +1,41 @@
+seed = 42
+target_score = 0.9
+require_trial_commits = true
+baseline_reference = "8fc98f3e68e8441a-0001"
+baseline_hypothesis = "768pxで学習したEfficientDet-D2は、640pxのMobileNetV3 Faster R-CNNより小さい穂の再現率を改善するか。"
+runtime_s = 4800
+agent_s = 600
+smoke_s = 120
+evaluate_s = 300
+poll_s = 10
+editable = ["configs/efficientdet.json"]
+
+[agent]
+type = "config-sweep"
+aggregate_only = true
+path = "configs/efficientdet.json"
+
+[[agent.variants]]
+hypothesis = "4枚の学習画像を切り貼りするMosaicで背景と密度の組み合わせを増やすと、撮影元をまたぐ検出性能が上がるか。"
+overrides = {run_label = "effdet-d2-6e-768-mosaic50", mosaic = 0.5}
+
+[executor]
+type = "kaggle"
+owner = "yutarotaro"
+binary = ".venv/bin/kaggle"
+competition = "global-wheat-detection"
+notebook_prefix = "wheat-train"
+notebook_label_file = "configs/efficientdet.json"
+accelerator = "NvidiaTeslaT4"
+internet = true
+
+[task]
+type = "command"
+interpreter = ".venv/bin/python"
+metric = "wheat_image_precision"
+direction = "max"
+train = ["python", "src/wheat/train.py", "--config", "configs/efficientdet.json", "--epoch-previews"]
+smoke = ["python", "src/wheat/train.py", "--config", "configs/efficientdet.json", "--smoke"]
+evaluate = ["python", "src/wheat/evaluate.py"]
+dataset_manifest = "data/prepared/split.json"
+remote_inputs = ["data/prepared/split.json"]
