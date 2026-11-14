@@ -157,6 +157,22 @@ MLFLOW_DISABLE_TELEMETRY=true uv run --script scripts/track_mlflow.py --watch
 提出推論は重みを生成した学習Runのchildになる。`git_commit` は実行ソースのコミットを示す。
 分割・画像・予測・重みの保管先は従来どおり `.loop-wheat/`。同期はLoopの状態データを読み取るため、同じ試行IDで再開できる。
 
+### 保存済みの検証予測をアンサンブルする
+
+同じ固定検証で完了した試行の成果物を渡し、Weighted Boxes Fusionで枠を統合する。
+モデルの重みは初期値では均等。最初に指定したconfidenceで独立評価し、
+confidenceを変えた各モデル単体のスコアと統合結果を `comparison.json` に保存する。
+`--track` を付けると、ローカルのMLflowに比較元の学習Runと検出画像を記録する。
+
+```bash
+MLFLOW_DISABLE_TELEMETRY=true uv run --script scripts/ensemble_predictions.py \
+  .loop-wheat/8fc98f3e68e8441a/artifacts/8fc98f3e68e8441a-0001 \
+  .loop-wheat/8fc98f3e68e8441a/artifacts/8fc98f3e68e8441a-0002 \
+  --output .loop-wheat/ensemble/mbv3-hflip-color15 --track
+```
+
+### 最終確認
+
 合格候補を選んだ後に限り、その試行のソースと重みを使ってローカルで
 `train.py --weights PATH --partition holdout`を実行し、別の成果物ディレクトリで
 `evaluate.py --partition holdout`を実行する。両コマンドに`ML_LOOP_PROJECT`と
