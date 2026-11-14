@@ -64,3 +64,34 @@ def test_independent_evaluator_rejects_missing_and_invalid_predictions(dataset):
     predictions.write_text(json.dumps({"images": {k: [[float("nan"), 2, 3, 12, 11]] for k in ids}, "environment": {}}))
     with pytest.raises(ValueError, match="finite"):
         evaluate(dataset, manifest, out, "validation")
+
+
+def test_public_archive_conversion_preserves_sources_and_excludes_unlabelled(tmp_path):
+    import importlib.util
+    import io
+    import zipfile
+
+    spec = importlib.util.spec_from_file_location(
+        "prepare_gwhd2020", Path(__file__).parents[1] / "scripts/prepare_gwhd2020.py")
+    converter = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(converter)
+    image_bytes = io.BytesIO()
+    Image.new("RGB", (32, 32)).save(image_bytes, format="PNG")
+    output = tmp_path / "result"
+    (output / "train").mkdir(parents=True)
+    archive_path = tmp_path / "fixture.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        for source in converter.SOURCES:
+            archive.writestr(f"{source}.json", json.dumps({
+                "categories": [{"id": 1, "name": "wheat_head"}],
+                "images": [{"id": 1, "file_name": "image.png", "width": 32, "height": 32},
+                           {"id": 2, "file_name": "no-box.png", "width": 32, "height": 32}],
+                "annotations": [{"category_id": 1, "image_id": 1, "bbox": [28, 2, 8, 6]}],
+            }))
+            archive.writestr(f"{source}/image.png", image_bytes.getvalue())
+    with zipfile.ZipFile(archive_path) as archive:
+        counts = converter.convert(archive, output)
+    images, _ = load_dataset(output)
+    assert {row["source"] for row in images.values()} == set(converter.SOURCES)
+    assert {tuple(row["boxes"][0]) for row in images.values()} == {(28, 2, 32, 8)}
+    assert counts["unannotated_images"] == counts["clipped_boxes"] == len(converter.SOURCES)

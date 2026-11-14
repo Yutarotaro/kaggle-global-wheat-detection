@@ -11,7 +11,8 @@
 
 [ML Research Loop](https://github.com/Yutarotaro/ml-research-loop)に接続済み。
 固定分割、採点、GPU向け学習・推論、独立評価によるエラー画像出力を実装した。
-合成画像でCPU学習から採点までを検証済み。実コンペの注釈CSVの取得は403で、実データの学習と4時間の実験は未実施。
+Kaggle公式データでGPUベースラインと短時間の改善試行を実行した。
+再現条件とスコアは [実験記録](docs/experiments.md) を参照。
 
 ## 環境
 
@@ -102,15 +103,64 @@ Loopリポジトリ側で`uv sync --locked --no-editable`を実行する。
 ../ml-research-loop/.venv/bin/ml-loop run --project . --state .loop-wheat --budget 4h --baseline BASELINE_RUN
 ```
 
+現在の `loop.toml` では、12 epoch・640px・横反転を基準に、色補正と上下反転をそれぞれ試す。
+固定検証の `wheat_image_precision` の目標は `0.90`。1試行最大45分で、比較単位をそろえてから次の候補を試す。
+
 学習はprivateのKaggleカーネルで行う。TorchVisionの公開事前学習済み重みを取得するため、
 既定では学習カーネルのネット接続を許可する。データ本体はコンペ入力としてKaggleに接続し、
 認証情報は学習コードに渡さない。検証の予測はローカルの固定評価コードで採点する。
+小麦では `agent.aggregate_only = true` を設定している。Codexに渡す評価情報はスコアと
+集計値に限り、誤検出画像、画像名、予測ファイル、実行時エラーの原文はローカルに残す。
 `stop`は新規実験を止める。Kaggle上で既に開始したジョブは時間上限まで回収する。
+
+### ローカルMLflowで学習状況を見る
+
+[MLflowの実験一覧](http://localhost:5050)で `global-wheat-detection` を開く。
+コンペごとに1つのExperimentを使う。学習は `train/<条件>/<試行ID>`、提出推論は
+`infer/<条件>/<提出ID>`。RunのDescriptionに仮説、変更した条件、評価分割を記録する。
+Kaggleの新規Notebookも `wheat-train-<条件>-<試行IDのハッシュ>` と `wheat-infer-<条件>` で分ける。
+一覧の `loop_status` は準備・実行・評価・終了の状態を示す。Runの `train_loss` はepochごとの学習loss、
+`valid_loss` は固定の検証データで測ったloss、`optimizer_steps` は累積更新回数。
+`wheat_image_precision` はローカルの固定検証スコア。同じ `comparison_group` のRunを比較する。
+提出推論の `kaggle_public_score` と `kaggle_private_score` はKaggleの採点結果。
+`--watch` は15秒ごとに同期し、実行中のlossはKaggleのログ配信後に表示する。画面は必要に応じて再読み込みする。
+
+別のMacで動かす場合は、プロジェクト直下のターミナルで追跡サーバーを起動する。
+
+```bash
+mkdir -p .loop-wheat/mlflow
+MLFLOW_DISABLE_TELEMETRY=true uv run --no-project --python 3.12 --with 'mlflow==3.18.0' mlflow server \
+  --host 127.0.0.1 --port 5050 --workers 1 --allowed-hosts '127.0.0.1:5050,localhost:5050' \
+  --backend-store-uri "sqlite:///$PWD/.loop-wheat/mlflow/tracking.sqlite" \
+  --artifacts-destination "$PWD/.loop-wheat/mlflow/artifacts"
+```
+
+別のターミナルで同期を開始する。`--watch` を省くと保存済みの試行だけを1回取り込む。
+
+```bash
+MLFLOW_DISABLE_TELEMETRY=true uv run --script scripts/track_mlflow.py --watch
+```
+
+完了済みRunのArtifactsには評価結果、ログ、実行コードのNotebookを保存する。
+分割・画像・予測・重みの保管先は従来どおり `.loop-wheat/`。同期はLoopの状態データを読み取るため、同じ試行IDで再開できる。
 
 合格候補を選んだ後に限り、その試行のソースと重みを使ってローカルで
 `train.py --weights PATH --partition holdout`を実行し、別の成果物ディレクトリで
 `evaluate.py --partition holdout`を実行する。両コマンドに`ML_LOOP_PROJECT`と
 `ML_LOOP_ARTIFACTS`を渡す。自走中にholdoutは採点しない。
+
+## 公式公開版でのローカル検証
+
+Kaggleの競技データを取得できない場合は、[GWHD 2020 v4](https://zenodo.org/records/4298502)の
+公開済み学習画像と注釈を使ってローカルで検証できる。これは注釈が修正された別版で、
+Kaggleのスコアとは比較しない。`data/gwhd2020-v4/`に分離し、未公開のテスト注釈は使わない。
+小規模検証では撮影元を跨がない分割を固定し、使った画像枚数と設定を評価結果に記録する。
+
+全データの実験には `loop.gwhd2020.toml` を使う。公式アーカイブを
+`scripts/prepare_gwhd2020.py` で変換し、撮影元別の分割を固定する。Kaggleの非公開データセット
+には学習・検証画像と学習用注釈を入れる。検証の正解注釈と最終確認用データはローカルに残す。
+実験時に未コミットの変更がある場合は、`ml-loop run --working-tree` で無視対象を除いた
+ソースを固定し、コミットせずに実行できる。
 
 ## Gitの運用
 

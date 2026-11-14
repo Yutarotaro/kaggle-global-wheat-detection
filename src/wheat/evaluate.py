@@ -75,6 +75,13 @@ def evaluate(data, manifest, out, partition):
         "partition": partition, "image_count": len(ids), "by_source": {k: mean(v) for k, v in sources.items()},
         "recall_by_box_size_iou_50": {k: {"recall": found / count, "boxes": count}
                                      for k, (found, count) in sizes.items()},
+        "agent_metrics": {
+            "evaluated_images": len(ids),
+            "false_positives_iou_50": sum(len(e[1]) for e in errors),
+            "duplicates_iou_50": sum(len(e[2]) for e in errors),
+            "misses_iou_50": sum(len(e[3]) for e in errors),
+            **{f"{k}_recall_iou_50": found / count for k, (found, count) in sizes.items()},
+        },
         "error_images": sorted(p.name for p in error_dir.glob("*.jpg")),
         "training_environment": payload["environment"],
     }}
@@ -83,11 +90,14 @@ def evaluate(data, manifest, out, partition):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--partition", choices=("validation", "holdout"), default="validation")
+    parser.add_argument("--data-source", choices=("competition", "gwhd2020-v4"), default="competition")
     args = parser.parse_args()
     project = Path(os.environ["ML_LOOP_PROJECT"])
     out = Path(os.environ["ML_LOOP_ARTIFACTS"])
-    split = json.loads((project / "data/prepared/split.json").read_text())
-    result = evaluate(project / "data/raw", split, out, args.partition)
+    raw, split_path = (("data/gwhd2020-v4/raw", "data/gwhd2020-v4/split.json")
+                       if args.data_source == "gwhd2020-v4" else ("data/raw", "data/prepared/split.json"))
+    split = json.loads((project / split_path).read_text())
+    result = evaluate(project / raw, split, out, args.partition)
     (out / "evaluation.json").write_text(json.dumps(result, allow_nan=False))
 
 

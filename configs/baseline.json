@@ -1,9 +1,13 @@
 {
   "image_size": 640,
-  "epochs": 3,
+  "run_label": "mbv3-12e-640-hflip",
+  "epochs": 12,
   "batch_size": 4,
   "learning_rate": 0.0001,
   "horizontal_flip": 0.5,
+  "vertical_flip": 0,
+  "color_jitter": 0,
+  "validation_loss": true,
   "confidence": 0.3,
   "nms": 0.5
 }

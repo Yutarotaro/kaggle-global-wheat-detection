@@ -1,6 +1,33 @@
 # 実験記録
 
-まだ学習実験は行っていない。
+## 2026-11-14: Kaggle公式データのGPUベースライン
+
+KaggleのTesla T4でMobileNetV3 Faster R-CNNを画像サイズ640、3 epoch、バッチ4、シード42で学習した。
+撮影元別の固定分割は学習2,002枚、検証636枚、最終確認用735枚。注釈・撮影元がない49枚は除外し、
+最終確認用データは未評価。
+
+13:28:49（日本時間）のローカル検証スコアは **0.445099**。撮影元別では
+`rres_1` が0.558528、`arvalis_2` が0.204897。
+[Kaggle実行 v1](https://www.kaggle.com/code/yutarotaro/ml-loop-10a1829d2fc84c67-0001) は完了し、
+実行 `10a1829d2fc84c67` に重み、予測、評価結果を回収した。この結果をベースラインとして、
+4時間の改善実験 `f5d6ac6937e943b8` を開始した。
+
+同じベースラインの重みを使い、ネット接続なしの[非公開推論Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-baseline-late-20261114)を用意した。
+提出用CSVをKaggle上で生成できることを確認し、終了後の採点へ1回だけ提出した（提出ID `58331537`）。
+採点結果はPublic **0.5358**、Private **0.4449**。提出スコアはモデル選択や改善ループの入力には使わない。
+提出時のコードは `notebooks/submission-baseline.ipynb` に保存した。
+各実験のコードは実行ディレクトリ内の `artifacts/<trial-id>/bundle/experiment.ipynb` を参照する。
+旧方式の実験は、送信済みのバンドルからNotebookを復元した。元の実行やスコアとは区別して参照する。
+
+## 2026-11-14: GWHD 2020 v4のローカル接続確認
+
+[公式公開版（Zenodo 4298502）](https://zenodo.org/records/4298502)の注釈付き画像から、
+7撮影元を各2枚、シード42で選択した。学習8枚、検証4枚、holdout 2枚に撮影元で分割し、
+holdoutは未評価。MacのCPUでMobileNetV3 Faster R-CNNを画像サイズ256、1 epoch、バッチ2で学習した。
+
+検証スコアは **0.004615**。Kaggle取得は403で、これは公開修正版の14枚だけを使った接続確認。
+Kaggleのスコアや全データのベースラインには使用しない。設定、分割、重み、評価値、
+誤検出画像はローカルの `data/gwhd2020-v4/smoke-project/` に保存した。
 
 実験を始めたら、以下を記録する。
 

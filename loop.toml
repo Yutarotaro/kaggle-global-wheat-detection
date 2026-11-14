@@ -1,4 +1,5 @@
 seed = 42
+target_score = 0.9
 runtime_s = 2700
 agent_s = 600
 smoke_s = 120
@@ -7,13 +8,30 @@ poll_s = 10
 editable = ["configs/baseline.json", "src/wheat/model.py", "src/wheat/preprocess.py", "src/wheat/train.py"]
 
 [agent]
+type = "config-sweep"
+aggregate_only = true
+path = "configs/baseline.json"
+
+[agent.fallback]
 type = "codex"
+aggregate_only = true
+research_brief = "Target 0.90 on the fixed validation competition metric. Use the reported score and recall by box size. Prefer one controlled change at a time. Prioritize longer training when underfit, then input resolution, learning rate, detector backbones, and inference thresholds. Keep validation loss and optimizer-step logging, keep validation separate, and update run_label in configs/baseline.json with the experiment condition. The 45-minute runtime includes training and final prediction."
+
+[[agent.variants]]
+hypothesis = "Moderate color jitter helps transfer between fields with different lighting."
+overrides = {run_label = "mbv3-12e-640-color15", color_jitter = 0.15}
+
+[[agent.variants]]
+hypothesis = "Vertical flipping improves robustness to camera orientation."
+overrides = {run_label = "mbv3-12e-640-vflip50", vertical_flip = 0.5}
 
 [executor]
 type = "kaggle"
 owner = "yutarotaro"
 binary = ".venv/bin/kaggle"
 competition = "global-wheat-detection"
+notebook_prefix = "wheat-train"
+notebook_label_file = "configs/baseline.json"
 accelerator = "NvidiaTeslaT4"
 internet = true
 
