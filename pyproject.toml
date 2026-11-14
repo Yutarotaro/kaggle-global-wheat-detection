@@ -1,0 +1,22 @@
+[project]
+name = "kaggle-global-wheat-detection"
+version = "0.1.0"
+description = "Global Wheat Detection のデータ分析と検出モデルの実験"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "matplotlib>=3.9,<4",
+    "numpy>=1.26,<3",
+    "pandas>=2.2,<3",
+    "pillow>=10.4,<13",
+]
+
+[dependency-groups]
+kaggle = [
+    "kaggle>=2.2.5,<3",
+    # Kaggle 2.2.5 imports six without declaring it as a dependency.
+    "six>=1.16,<2",
+]
+
+[tool.uv]
+package = false

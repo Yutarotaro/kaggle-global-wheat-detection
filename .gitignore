@@ -1,0 +1,44 @@
+# Python / tools
+.venv/
+.cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+*.egg-info/
+build/
+dist/
+.DS_Store
+
+# Credentials and machine-local settings
+.env
+.env.*
+!.env.example
+.kaggle/
+kaggle.json
+access_token
+.aws/
+*.pem
+*.key
+
+# Raw data and generated artifacts stay local
+data/*
+!data/.gitkeep
+outputs/*
+!outputs/.gitkeep
+models/*
+!models/.gitkeep
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+*.zip
+*.tar
+*.tar.gz
+*.jpg
+*.jpeg
+*.png
+*.tif
+*.tiff
