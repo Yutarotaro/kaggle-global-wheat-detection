@@ -8,25 +8,29 @@ import os
 import platform
 import random
 from collections import defaultdict
+from contextlib import ExitStack
 from importlib.metadata import version
 from pathlib import Path
 
 import torch
 import torchvision
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, RandomSampler
 from torchvision.transforms import ColorJitter
 
 from data import sha
 from model import create_model
 from preprocess import mosaic, read_image
 from preview_samples import select_preview_ids
+from supplement import unpack_supplement
 
 
 class Images(Dataset):
-    def __init__(self, root, ids, boxes, flip=0, vertical_flip=0, color_jitter=0, mosaic_probability=0):
+    def __init__(self, root, ids, boxes, flip=0, vertical_flip=0, color_jitter=0, mosaic_probability=0,
+                 extra_root=None):
         self.root, self.ids, self.boxes, self.flip = root, ids, boxes, flip
         self.vertical_flip = vertical_flip
         self.mosaic_probability = mosaic_probability
+        self.extra_root = extra_root
         self.color_jitter = (ColorJitter(brightness=color_jitter, contrast=color_jitter,
                                         saturation=color_jitter) if color_jitter else None)
 
@@ -41,7 +45,8 @@ class Images(Dataset):
 
     def load(self, i):
         key = self.ids[i]
-        return read_image(self.root / "train" / f"{key}.jpg", self.boxes.get(key, []),
+        root = self.extra_root if self.extra_root and key.startswith("gwhd2021-mons-") else self.root
+        return read_image(root / "train" / f"{key}.jpg", self.boxes.get(key, []),
                           self.flip, self.vertical_flip, self.color_jitter)
 
 
@@ -95,7 +100,7 @@ def predict(model, data, ids, device):
     return predictions
 
 
-def main():
+def main(resources):
     parser = argparse.ArgumentParser()
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--config", type=Path, default=Path("configs/baseline.json"))
@@ -103,9 +108,12 @@ def main():
     parser.add_argument("--weights", type=Path, help="Predict from a saved checkpoint instead of training.")
     parser.add_argument("--partition", choices=("validation", "holdout"), default="validation")
     parser.add_argument("--epoch-previews", action="store_true", help="Save predictions for four fixed validation images.")
+    parser.add_argument("--mons-supplement", type=Path, help="Manifest for the optional Arvalis_10 training data.")
     args = parser.parse_args()
     if args.partition == "holdout" and not args.weights:
         parser.error("Holdout inference requires an existing checkpoint.")
+    if args.mons_supplement and (args.data_source != "competition" or args.weights):
+        parser.error("The Mons supplement applies only to competition model training.")
     config = json.loads(args.config.read_text())
     config.setdefault("vertical_flip", 0)
     config.setdefault("color_jitter", 0)
@@ -203,10 +211,22 @@ def main():
     else:
         if config["mosaic"] and len(train_ids) < 4:
             raise ValueError("Mosaic requires at least four training images.")
-        loader = DataLoader(Images(data, sorted(train_ids), boxes, config["horizontal_flip"],
-                                   config["vertical_flip"], config["color_jitter"], config["mosaic"]),
-                            batch_size=config["batch_size"], shuffle=True, collate_fn=collate,
-                            generator=torch.Generator().manual_seed(seed))
+        extra = {}
+        extra_root = None
+        if args.mons_supplement:
+            archives = (list(Path("/kaggle/input").rglob("gwhd2021-mons.zip")) if remote else
+                        [project / "data/gwhd2021/mons/gwhd2021-mons.zip"])
+            extra_root, extra = unpack_supplement(project / args.mons_supplement, archives,
+                                                  project / split_path, resources)
+            if set(extra).intersection(split["images"]):
+                raise ValueError("Supplement contains a competition image ID.")
+            boxes.update(extra)
+        dataset = Images(data, sorted(train_ids | extra.keys()), boxes, config["horizontal_flip"],
+                         config["vertical_flip"], config["color_jitter"], config["mosaic"], extra_root)
+        sampler = (RandomSampler(dataset, num_samples=len(train_ids), generator=torch.Generator().manual_seed(seed))
+                   if extra else None)
+        loader = DataLoader(dataset, batch_size=config["batch_size"], sampler=sampler, shuffle=sampler is None,
+                            collate_fn=collate, generator=torch.Generator().manual_seed(seed))
         valid_loader = None
         if config["validation_loss"]:
             if not valid_loss_ids:
@@ -227,7 +247,7 @@ def main():
                 loss.backward()
                 opt.step()
                 loss_total += loss.item() * len(images)
-            progress = f"Epoch {epoch + 1}: loss {loss_total / len(loader.dataset):.5f}"
+            progress = f"Epoch {epoch + 1}: loss {loss_total / len(train_ids):.5f}"
             if valid_loader is not None:
                 progress += f" val_loss {validation_loss(model, valid_loader, device, seed):.5f}"
             print(f"{progress} optimizer_steps {(epoch + 1) * len(loader)}", flush=True)
@@ -248,4 +268,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    with ExitStack() as resources:
+        main(resources)

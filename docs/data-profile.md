@@ -65,6 +65,37 @@
 この層を多めにサンプリングする試行では、学習ステップ数をそろえた通常サンプリングを比較元とする。
 撮影元別と穂数別の誤検出・見逃しを記録する。検証の誤検出集計と仮説は[実験記録](experiments.md#学習検証データの分布)に記載。
 
+## 追加データの取得と選定
+
+最初の追加データは、GWHD 2021で新しく収録されたフランス・モンの `Arvalis_10`。
+従来の固定検証にある `arvalis_2` は、同じ機関が別の圃場・時期に撮った `Arvalis_4` に対応する。
+まず公式の2021年学習CSVに掲載された `Arvalis_10` のみを使う。
+2021年版に含まれる2020年版の再収録画像や2021年の検証・テスト分割は追加対象から外した。
+[論文の撮影セッション一覧](https://pmc.ncbi.nlm.nih.gov/articles/PMC8548052/#tab1)
+
+| 追加画像 | 穂の注釈 | 25本未満 | 注釈が0本の画像 | 重複検査での除外 |
+| ---: | ---: | ---: | ---: | ---: |
+| 60 | 1,563 | 22 | 2 | 0 |
+
+JPEG圧縮版の元データを使い、Kaggleで取得済みの訓練画像とサンプルテスト画像に対して、
+ファイル名と64ビットの差分ハッシュ（ハミング距離4以下）で重複候補を確認した。
+この検査範囲にはKaggleの非公開採点画像は含まれない。
+追加画像は学習にだけ渡し、固定検証636枚と評価コードをそのまま使う。
+
+データは CC BY 4.0。出典は David et al., *Global Wheat Head Detection 2021*、
+JPEG圧縮は Yosuke Toda。今回の加工は撮影元の抽出と枠形式の変換。
+[原版](https://zenodo.org/records/5092309) · [JPEG版](https://zenodo.org/records/8062267)
+
+```bash
+mkdir -p data/gwhd2021
+curl -fL --continue-at - -o data/gwhd2021/gwhd2021jpg.zip \
+  https://zenodo.org/api/records/8062267/files/gwhd2021jpg.zip/content
+uv run --locked python scripts/prepare_gwhd2021_mons.py \
+  data/gwhd2021/gwhd2021jpg.zip --output data/gwhd2021/mons
+```
+
+追加ZIPのSHA-256は `399cd67dc455bee217820dc66fdb0b1435c136a3fbaf83b2009bf10183f1ce0e`。
+
 ## 再集計
 
 ```bash

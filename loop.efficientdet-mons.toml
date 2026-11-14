@@ -1,0 +1,39 @@
+seed = 42
+target_score = 0.9
+require_trial_commits = true
+baseline_reference = "d31623fdd5114e49-0001"
+baseline_hypothesis = "Kaggle学習画像2,002枚に穂の少ないフランス・モンのGWHD 2021画像60枚を追加する。学習ステップ数をそろえ、arvalis_2の誤検出と全体スコアの変化を測る。"
+runtime_s = 4800
+agent_s = 600
+smoke_s = 120
+evaluate_s = 300
+poll_s = 10
+editable = ["configs/efficientdet-mons.json"]
+
+[agent]
+type = "config-sweep"
+aggregate_only = true
+path = "configs/efficientdet-mons.json"
+variants = []
+
+[executor]
+type = "kaggle"
+owner = "yutarotaro"
+binary = ".venv/bin/kaggle"
+competition = "global-wheat-detection"
+dataset_sources = ["yutarotaro/gwhd2021-mons-wheat"]
+notebook_prefix = "wheat-train"
+notebook_label_file = "configs/efficientdet-mons.json"
+accelerator = "NvidiaTeslaT4"
+internet = true
+
+[task]
+type = "command"
+interpreter = ".venv/bin/python"
+metric = "wheat_image_precision"
+direction = "max"
+train = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-mons.json", "--mons-supplement", "data/gwhd2021/mons/manifest.json", "--epoch-previews"]
+smoke = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-mons.json", "--smoke"]
+evaluate = ["python", "src/wheat/evaluate.py"]
+dataset_manifest = "data/prepared/split.json"
+remote_inputs = ["data/prepared/split.json", "data/gwhd2021/mons/manifest.json"]

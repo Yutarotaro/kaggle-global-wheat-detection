@@ -125,6 +125,30 @@ Weighted Boxes Fusion（WBF）の枠統合IoUは0.55。入力は各モデルの�
 [均等重みのMLflow Run](http://localhost:5050/#/experiments/1/runs/09a62b14beb44bc89a64632302d6dd19) ·
 [2:1のMLflow Run](http://localhost:5050/#/experiments/1/runs/1c2a456edb9f4e5eaa6a24ecd171cfa0)
 
+## 2026-11-14 Faster R-CNNとEfficientDet-D2のアンサンブル
+
+`8fc98f3e68e8441a-0001` と `d31623fdd5114e49-0001` を同じ固定検証636枚で比較。
+均等重み、統合IoU 0.55のWBFは、出力confidence 0.50で **0.569306**。
+同じ検証で選んだconfidence 0.40の再採点は **0.580485**。
+同じ0.40でD2単体は0.544813（差 +0.035672）、Faster R-CNN単体は0.522629。
+WBFの撮影元別スコアは `rres_1` 0.675937、`arvalis_2` 0.378352。
+小さい穂の再現率はIoU 0.50で5.96%。最終確認用分割とKaggle提出は未評価。
+[MLflowのアンサンブルRun](http://localhost:5050/#/experiments/1/runs/3600138dbd634b52b2e050d204d9ee51)
+
+## 2026-11-14 Arvalis Monsの追加データ試行
+
+D2基準の `d31623fdd5114e49-0001` と比較する。同じ初期重み、768px、6 epoch、
+バッチ4、seed 42、各epoch 2,002画像・501更新ステップ。
+追加試行では既存2,002枚とGWHD 2021のモン60枚から、各epochに2,002枚を重複なしで抽出する。
+固定検証の全体スコアと `arvalis_2` の誤検出件数で比較する。
+[取得・選定記録](data-profile.md#追加データの取得と選定) ·
+[Kaggleの追加データ](https://www.kaggle.com/datasets/yutarotaro/gwhd2021-mons-wheat)
+
+```bash
+../ml-research-loop/.venv/bin/ml-loop run --project . --config loop.efficientdet-mons.toml \
+  --state .loop-wheat --budget 2h --trials 1
+```
+
 ## 2026-11-14: GWHD 2020 v4のローカル接続確認
 
 [公式公開版（Zenodo 4298502）](https://zenodo.org/records/4298502)の注釈付き画像から、
