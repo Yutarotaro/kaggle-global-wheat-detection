@@ -79,13 +79,7 @@ DungNBの1位解法は、外部データを組み込んだ学習、MosaicとMixU
 
 ### 学習・検証データの分布
 
-```bash
-uv run --locked python scripts/profile_wheat_data.py --output outputs/data-profile/summary.json
-```
-
-固定分割の学習2,002枚と探索用検証636枚で、画像あたりの注釈数と枠面積を集計した。
-学習には `arvalis_1` 1,055枚、`ethz_1` 747枚、`usask_1` 200枚がある。
-検証は `rres_1` 432枚と `arvalis_2` 204枚。注釈のない49枚は元の固定分割で除外されている。
+[データ分布の集計](data-profile.md)に、固定分割の撮影元別の集計表と再現手順を記録した。
 
 穂数の中央値は学習50本、検証37本。25本未満の画像が学習では101枚（5.0%）、
 検証では173枚（27.2%）で、`arvalis_2` に156枚（撮影元内の76.5%）が集中する。
