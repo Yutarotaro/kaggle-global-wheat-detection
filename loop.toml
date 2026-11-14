@@ -1,6 +1,8 @@
 seed = 42
 target_score = 0.9
 require_trial_commits = true
+baseline_reference = "8fc98f3e68e8441a-0001"
+baseline_hypothesis = "6 epochに短縮して、12 epoch学習で見えたvalid lossの上昇を抑えながら検出スコアを維持できるか確認する。"
 runtime_s = 2700
 agent_s = 600
 smoke_s = 120
@@ -16,7 +18,13 @@ path = "configs/baseline.json"
 [agent.fallback]
 type = "codex"
 aggregate_only = true
-research_brief = "Target 0.90 on the fixed validation competition metric. Use the reported score and recall by box size. Prefer one controlled change at a time. Prioritize longer training when underfit, then input resolution, learning rate, detector backbones, and inference thresholds. Keep validation loss and optimizer-step logging, keep validation separate, and update run_label in configs/baseline.json with the experiment condition. The 45-minute runtime includes training and final prediction."
+research_brief = """
+Target 0.90 on the fixed validation competition metric. Use the reported score and recall by box size.
+The 640px MobileNetV3 baseline scored 0.44510 at 3 epochs and 0.51296 at 12 epochs. The 12-epoch validation loss was lowest at epoch 4.
+At 3 epochs background classification weight 1.25 improved by 0.00652. Adding box regression weight 1.20, positive classification weight 1.10, or a background weight warmup all worsened that parent. Avoid repeating those changes without a new hypothesis.
+Filtering the saved 12-epoch predictions at confidence 0.50 improved validation to 0.52579. This is exploratory validation evidence, not a holdout or leaderboard score.
+Prefer one controlled change at a time. Try input resolution, learning rate, detector backbones, and inference thresholds. Keep validation loss, epoch previews, and optimizer-step logging. Keep validation separate. Update run_label in configs/baseline.json with the condition. The 45-minute runtime includes training and final prediction.
+"""
 
 [[agent.variants]]
 hypothesis = "Moderate color jitter helps transfer between fields with different lighting."

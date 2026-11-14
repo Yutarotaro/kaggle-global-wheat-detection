@@ -116,6 +116,7 @@ def sync(client, experiment_id, records, live):
         if not token:
             break
 
+    records_by_id = {trial["id"]: trial for _, _, trial, _ in records}
     for root, session, trial, comparison in records:
         trial_id = trial["id"]
         status = trial["status"]
@@ -169,10 +170,29 @@ def sync(client, experiment_id, records, live):
             url = f"https://www.kaggle.com/code/{notebook}"
             notebook_link = f"[Kaggle Notebook（Version {version}）]({url}) · 実行ID `{handle}`"
             notebook_tags = {"kaggle_notebook": url, "kaggle_version": version, "kaggle_handle": handle}
+        parent_id = trial.get("parent_id")
+        reference = parent_id or (session["spec"].get("baseline_reference") if trial["number"] == 1 else None)
+        hypothesis = trial.get("hypothesis")
+        if trial["number"] == 1:
+            hypothesis = session["spec"].get("baseline_hypothesis", hypothesis)
+        parent = runs.get(reference)
+        parent_score = records_by_id.get(reference, {}).get("score")
+        compare = "基準Run。"
+        if reference:
+            parent_label = (f"[{parent.info.run_name}](#/experiments/{experiment_id}/runs/{parent.info.run_id})"
+                            if parent else f"`{reference}`")
+            compare = f"{'比較元' if parent_id else '参考Run（別セッション）'}: {parent_label}"
+            if parent_score is not None:
+                compare += f"（固定検証 {parent_score:.6f}）"
+                if score is not None:
+                    compare += f"。このRunは {score:.6f}（差 {score - parent_score:+.6f}）"
+            compare += "。"
         description = "\n\n".join(part for part in (
             notebook_link,
             f"Kaggle GPU学習。{conditions}。",
-            trial.get("hypothesis"), trial.get("change"),
+            f"仮説: {hypothesis}" if hypothesis else "",
+            f"変更: {trial['change']}" if trial.get("change") else "",
+            compare,
             "検証: 撮影元で固定したvalidation。評価基準: Wheat Image Precision。",
         ) if part)
 
@@ -186,6 +206,8 @@ def sync(client, experiment_id, records, live):
             "completed_epochs": str(max(losses, default=0)),
             **notebook_tags,
         }
+        if reference:
+            tags["comparison_trial_id"] = reference
         if trial.get("git_commit") or not session.get("working_tree", False):
             tags["git_commit"] = trial.get("git_commit") or session["head"]
             tags["git_commit_scope"] = "trial" if trial.get("git_commit") or trial["number"] == 1 else "session_base"
@@ -224,6 +246,30 @@ def sync(client, experiment_id, records, live):
             end = int(trial.get("completed_at", trial["started_at"]) * 1000)
             if run.info.status != TERMINAL[status]:
                 client.set_terminated(run_id, TERMINAL[status], end_time=end)
+
+
+def write_journal(state, records):
+    by_id = {trial["id"]: trial for _, _, trial, _ in records}
+    lines = ["# 小麦検出の実験履歴", "", "Loopの記録から自動生成。スコアは固定検証。", "",
+             "| 試行 | 比較元 | 仮説 | 変更 | 結果 | 親との差 |",
+             "| --- | --- | --- | --- | --- | --- |"]
+    for _, session, trial, _ in records:
+        reference = session["spec"].get("baseline_reference") if trial["number"] == 1 else None
+        hypothesis = session["spec"].get("baseline_hypothesis", trial.get("hypothesis", "")) if reference else trial.get("hypothesis", "")
+        parent_id = trial.get("parent_id") or reference
+        score = trial.get("score")
+        parent_score = by_id.get(parent_id, {}).get("score")
+        result = format(score, ".6f") if score is not None else trial["status"]
+        delta = f"{score - parent_score:+.6f}" if score is not None and parent_score is not None else "—"
+        label = f"{reference}（参考）" if reference else parent_id or "基準"
+        cells = (trial["id"], label, hypothesis, trial.get("change", ""), result, delta)
+        lines.append("| " + " | ".join(cell.replace("|", "\\|").replace("\n", " ") for cell in cells) + " |")
+    path = state / "experiments.md"
+    content = "\n".join(lines) + "\n"
+    if not path.is_file() or path.read_text(encoding="utf-8") != content:
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(content, encoding="utf-8")
+        temporary.replace(path)
 
 
 def sync_inference(client, experiment_id, state):
@@ -283,6 +329,7 @@ def main():
             while True:
                 try:
                     records = snapshots(state)
+                    write_journal(state, records)
                     if args.watch:
                         live.reconcile({trial["id"]: trial["handle"] for _, session, trial, _ in records
                                         if session["status"] == "running" and trial["status"] == "running"
