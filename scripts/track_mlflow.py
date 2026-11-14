@@ -285,6 +285,10 @@ def sync_inference(client, experiment_id, state):
                 "parent_trial_id": record["parent_trial_id"], "kaggle_notebook": record["notebook"],
                 "kaggle_version": str(record["version"]),
                 "mlflow.note.content": f"{notebook_link}\n\n{record['description']}"}
+        if record.get("git_commit"):
+            tags["git_commit"] = record["git_commit"]
+        if record.get("parent_trial_ids"):
+            tags["parent_trial_ids"] = ",".join(record["parent_trial_ids"])
         parent = next((run for run in client.search_runs([experiment_id],
                        f"tags.trial_id = '{record['parent_trial_id']}'") if run.data.tags.get("run_kind") == "train"), None)
         if parent:

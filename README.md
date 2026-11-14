@@ -179,6 +179,22 @@ MLFLOW_DISABLE_TELEMETRY=true uv run --script scripts/ensemble_predictions.py \
 `evaluate.py --partition holdout`を実行する。両コマンドに`ML_LOOP_PROJECT`と
 `ML_LOOP_ARTIFACTS`を渡す。自走中にholdoutは採点しない。
 
+### Kaggleへの節目提出
+
+固定検証で最良を更新した構成がまとまった時点で、学習とは別の非公開推論Notebookを作る。
+推論はインターネット無効で、学習Notebook出力の重みと依存wheelをSHA-256で照合する。
+検証用の10枚でCSV生成を確認後、Notebookの版を指定して提出する。
+同じNotebook版を提出済みか履歴で照合する。Public・Privateは提出の測定値として記録し、モデル選択には固定検証を使う。
+
+```bash
+uv run --locked python scripts/build_submission_notebook.py \
+  configs/submission-d2-mbv3-wbf040.json --output outputs/submission-d2-mbv3-wbf040
+kaggle kernels push -p outputs/submission-d2-mbv3-wbf040 --accelerator NvidiaTeslaT4
+# Notebookの実行成功と提出履歴を確認してから、実際に確認した版を指定する。
+kaggle competitions submit -c global-wheat-detection \
+  -k yutarotaro/wheat-infer-d2-mbv3-wbf040 -v 1 -f submission.csv -m 'd2-mbv3-wbf040 | val 0.580485 | v1'
+```
+
 ## 公式公開版でのローカル検証
 
 Kaggleの競技データを取得できない場合は、[GWHD 2020 v4](https://zenodo.org/records/4298502)の

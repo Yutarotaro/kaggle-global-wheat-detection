@@ -14,13 +14,13 @@ from contextlib import closing
 from importlib.metadata import version
 from pathlib import Path
 
-from ensemble_boxes import weighted_boxes_fusion
 from mlflow import MlflowClient
 
-from sweep_confidence import PROJECT, load_dataset, score_cutoffs, sha, validate_predictions
+from sweep_confidence import PROJECT, load_dataset, score_cutoffs, sha
 
 sys.path.insert(0, str(PROJECT / "src/wheat"))
 from evaluate import evaluate
+from fusion import fuse
 from render_previews import render_previews
 
 SPLIT = "data/prepared/split.json"
@@ -63,23 +63,6 @@ def read_trial(folder, split_hash, ids):
         "score": trial["score"],
         "predictions_sha256": sha(path),
     }
-
-
-def fuse(rows, width, height, weights, threshold):
-    scale = (width, height, width, height)
-    for guesses in rows:
-        validate_predictions(guesses, width, height)
-    # Ignore confidences of zero: they carry no weight when averaging positions.
-    rows = [[box for box in guesses if box[0] > 0] for guesses in rows]
-    boxes, scores, _ = weighted_boxes_fusion(
-        [[[value / size for value, size in zip(box[1:], scale)] for box in guesses] for guesses in rows],
-        [[box[0] for box in guesses] for guesses in rows],
-        [[1] * len(guesses) for guesses in rows],
-        weights=weights, iou_thr=threshold, conf_type="box_and_model_avg",
-    )
-    # The library uses float32 cluster averages, which can round above 1.
-    return [[min(float(conf), 1.0), *(min(float(value), 1.0) * size for value, size in zip(box, scale))]
-            for box, conf in zip(boxes, scores)]
 
 
 def log_run(out, experiment, report, details):
