@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="464" viewBox="0 0 1280 464" role="img" aria-labelledby="title desc">
+  <title id="title">Wheat detection with Faster R-CNN, EfficientDet-D2 and weighted boxes fusion</title>
+  <desc id="desc">The same RGB image enters two independently trained branches. MobileNetV3-Large feeds an FPN and then the RPN and RoI heads. EfficientNet-B2 feeds a BiFPN and dense classification and regression heads. The branches output boxes and scores in original image coordinates. Equal-weight WBF fuses boxes at IoU 0.55 and retains scores of at least 0.40.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0 0 8 4 0 8z" fill="#506179"/>
+    </marker>
+    <style>
+      text { font-family: "Inter", "Helvetica Neue", Arial, sans-serif; fill: #172840; }
+      .major { font-size: 17px; font-weight: 700; }
+      .minor { font-size: 13px; fill: #3d506b; }
+      .branch { font-size: 16px; font-weight: 700; }
+      .stage { stroke-width: 1.25; rx: 9; }
+      .route { stroke: #506179; stroke-width: 1.65; fill: none; marker-end: url(#arrow); }
+      .skip { stroke-dasharray: 4 3; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="1280" height="464" rx="18" fill="#f8fafd"/>
+  <rect x="148" y="27" width="778" height="181" rx="12" fill="#edf3ff" stroke="#becee8"/>
+  <rect x="148" y="239" width="778" height="159" rx="12" fill="#e8f6f3" stroke="#b5d7d1"/>
+  <text x="169" y="55" class="branch" fill="#244c87">A   Faster R-CNN</text>
+  <text x="169" y="267" class="branch" fill="#18635b">B   EfficientDet-D2</text>
+
+  <g class="route">
+    <path d="M116 222 H130 V116 H162"/>
+    <path d="M116 222 H130 V323 H162"/>
+    <path d="M260 116 H280"/>
+    <path d="M429 116 H449"/>
+    <path d="M523 116 H543"/>
+    <path d="M618 116 H638"/>
+    <path d="M776 116 H796"/>
+    <path d="M260 323 H280"/>
+    <path d="M429 323 H449"/>
+    <path d="M523 323 H543"/>
+    <path d="M776 323 H796"/>
+    <path d="M901 116 H944 V194 H972"/>
+    <path d="M901 323 H944 V249 H972"/>
+    <path d="M1100 222 H1126"/>
+  </g>
+  <path class="route skip" d="M487 148 V178 H709 V149"/>
+  <text x="598" y="193" text-anchor="middle" class="minor">FPN features to RoIAlign</text>
+
+  <g fill="#fff" stroke="#bbc8d9" class="stage">
+    <rect x="20" y="186" width="96" height="72"/>
+    <rect x="1130" y="186" width="128" height="72"/>
+  </g>
+  <g fill="#fff" stroke="#9eb7df" class="stage">
+    <rect x="166" y="84" width="94" height="64"/>
+    <rect x="284" y="84" width="145" height="64"/>
+    <rect x="453" y="84" width="70" height="64"/>
+    <rect x="547" y="84" width="71" height="64"/>
+    <rect x="642" y="84" width="134" height="64"/>
+    <rect x="800" y="84" width="101" height="64"/>
+  </g>
+  <g fill="#fff" stroke="#89bdb5" class="stage">
+    <rect x="166" y="291" width="94" height="64"/>
+    <rect x="284" y="291" width="145" height="64"/>
+    <rect x="453" y="291" width="70" height="64"/>
+    <rect x="547" y="291" width="229" height="64"/>
+    <rect x="800" y="291" width="101" height="64"/>
+  </g>
+  <rect x="976" y="169" width="124" height="106" fill="#fff5e9" stroke="#c59260" class="stage"/>
+
+  <g text-anchor="middle">
+    <text x="68" y="215" class="major">RGB image</text>
+    <text x="68" y="237" class="minor">original size</text>
+    <text x="213" y="109" class="major">Resize</text>
+    <text x="213" y="132" class="minor">640 px</text>
+    <text x="356.5" y="109" class="major">MobileNetV3</text>
+    <text x="356.5" y="132" class="minor">Large backbone</text>
+    <text x="488" y="122" class="major">FPN</text>
+    <text x="582.5" y="109" class="major">RPN</text>
+    <text x="582.5" y="132" class="minor">proposals</text>
+    <text x="709" y="109" class="major">RoIAlign</text>
+    <text x="709" y="132" class="minor">class / box heads</text>
+    <text x="850.5" y="109" class="major">Boxes</text>
+    <text x="850.5" y="132" class="minor">and scores</text>
+    <text x="213" y="316" class="major">Resize</text>
+    <text x="213" y="339" class="minor">768 × 768</text>
+    <text x="356.5" y="316" class="major">EfficientNet-B2</text>
+    <text x="356.5" y="339" class="minor">backbone</text>
+    <text x="488" y="329" class="major">BiFPN</text>
+    <text x="661.5" y="316" class="major">Dense heads</text>
+    <text x="661.5" y="339" class="minor">classification and box regression</text>
+    <text x="850.5" y="316" class="major">Boxes</text>
+    <text x="850.5" y="339" class="minor">and scores</text>
+    <text x="1038" y="202" class="major">WBF</text>
+    <text x="1038" y="224" class="minor">IoU &gt; 0.55</text>
+    <text x="1038" y="246" class="minor">weights 0.5 / 0.5</text>
+    <text x="1194" y="214" class="major">Final boxes</text>
+    <text x="1194" y="237" class="minor">score ≥ 0.40</text>
+  </g>
+  <text x="169" y="434" class="minor">Both branches apply NMS and pass scores ≥ 0.30 to WBF. Boxes are mapped back to the original image before fusion.</text>
+</svg>

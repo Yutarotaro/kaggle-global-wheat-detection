@@ -132,11 +132,13 @@ Weighted Boxes Fusion（WBF）の枠統合IoUは0.55。入力は各モデルの�
 同じ検証で選んだconfidence 0.40の再採点は **0.580485**。
 同じ0.40でD2単体は0.544813（差 +0.035672）、Faster R-CNN単体は0.522629。
 WBFの撮影元別スコアは `rres_1` 0.675937、`arvalis_2` 0.378352。
-小さい穂の再現率はIoU 0.50で5.96%。最終確認用分割とKaggle提出は未評価。
+小さい穂の再現率はIoU 0.50で5.96%。ローカルの最終確認用分割は未評価。
 [MLflowのアンサンブルRun](http://localhost:5050/#/experiments/1/runs/3600138dbd634b52b2e050d204d9ee51)
 
 同じ条件の推論専用Notebook v1をネット接続なしで実行し、Kaggleのサンプル10枚でCSVを確認。
 終了後の採点に提出した（提出ID `58342094`、提出ソース `98308fd`）。
+採点結果は **Public 0.6512 / Private 0.5466**。
+初回提出 `58331537` からの差は Public +0.1154、Private +0.1017。
 学習元は `8fc98f3e68e8441a-0001` と `d31623fdd5114e49-0001`。
 [Kaggle Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-d2-mbv3-wbf040) ·
 [MLflowの提出推論Run](http://localhost:5050/#/experiments/1/runs/6bc49f5820c848789b24245c54089ab0)
