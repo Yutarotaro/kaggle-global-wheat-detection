@@ -317,12 +317,26 @@ def sync_inference(client, experiment_id, state):
             tags["parent_trial_ids"] = ",".join(record["parent_trial_ids"])
         if record.get("status"):
             tags["kaggle_submission_status"] = record["status"]
-        parent = next((run for run in client.search_runs([experiment_id],
-                       f"tags.trial_id = '{record['parent_trial_id']}'") if run.data.tags.get("run_kind") == "train"), None)
+        training_runs = {}
+        for trial_id in record.get("parent_trial_ids") or [record["parent_trial_id"]]:
+            run = next((candidate for candidate in client.search_runs(
+                [experiment_id], f"tags.trial_id = '{trial_id}'")
+                if candidate.data.tags.get("run_kind") == "train"), None)
+            if run:
+                training_runs[trial_id] = run
+        parent = training_runs.get(record["parent_trial_id"])
         if parent:
             tags["mlflow.parentRunId"] = parent.info.run_id
             if parent.data.tags.get("git_commit"):
                 tags["training_git_commit"] = parent.data.tags["git_commit"]
+        if training_runs:
+            tags["model_input_run_ids"] = ",".join(run.info.run_id for run in training_runs.values())
+            links = [
+                f"- [{run.info.run_name}](#/experiments/{experiment_id}/runs/{run.info.run_id})"
+                + ("（MLflowツリーの親）" if trial_id == record["parent_trial_id"] else "")
+                for trial_id, run in training_runs.items()
+            ]
+            tags["mlflow.note.content"] += "\n\n使用した学習Run\n\n" + "\n".join(links)
         run = matches[0] if matches else client.create_run(experiment_id, run_name=name, tags=tags)
         run_id = run.info.run_id
         metrics = [Metric(key, value, int(time.time() * 1000), 0) for key, value in record["scores"].items()

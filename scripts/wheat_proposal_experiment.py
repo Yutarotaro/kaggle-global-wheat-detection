@@ -133,8 +133,10 @@ def summarize(pred, labels):
         for source in sources}}
 
 
-def complete(path, keys, envelope=True):
+def complete(path, keys, envelope=True, identity=None):
     raw = read(path)
+    if identity and any(raw["meta"].get(key) != value for key, value in identity.items()):
+        raise ValueError(f"Proposal fingerprint mismatch: {path}")
     rows = raw["images"] if envelope else raw
     if rows.keys() != set(keys):
         raise ValueError(f"Incomplete proposal set: {path}")
@@ -144,7 +146,7 @@ def complete(path, keys, envelope=True):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=["field", "validation-tiles", "field-tiles", "holdout-tiles",
-                                          "screen-global", "screen-tiles", "confirm"])
+                                          "screen-global", "screen-rescue", "screen-tiles", "confirm"])
     parser.add_argument("--device", default="mps")
     parser.add_argument("--batch", type=int, default=4)
     parser.add_argument("--candidate", type=Path)
@@ -161,7 +163,7 @@ def main():
         raise ValueError("The experiment requires a committed working tree.")
     device = torch.device(args.device)
     with ExitStack() as stack:
-        if args.phase.startswith("field") or args.phase.startswith("screen"):
+        if args.phase in {"field", "field-tiles", "screen-global", "screen-tiles"}:
             dataset, boxes = unpack_supplement(FIELD / "manifest.json",
                                                [FIELD / "gwhd2021-field385.bin"], SPLIT, stack)
             fields = supplement_labels(dataset, boxes)
@@ -200,13 +202,19 @@ def main():
         expected = spec[f"{partition}_score"]
         if not math.isclose(reference["score"], expected, abs_tol=1e-9, rel_tol=0):
             raise ValueError(f"Incumbent reproduction failed: {reference['score']} != {expected}")
-        if args.phase.startswith("screen"):
+        tile_model = models[tiles["model_index"]]
+        tile_identity = {"weights_sha256": tile_model["sha256"], "split_sha256": sha(SPLIT),
+                         "tiles": tiles, "config": tile_model["config"]}
+        if args.phase == "screen-rescue":
+            candidates, diagnostics = [{"tiles": tiles}], {}
+        elif args.phase.startswith("screen"):
             field_rows = [complete(WORK / f"field-{index}.json", fields) for index in range(len(models))]
-            field_tiles = complete(WORK / "field-tiles.json", fields) if args.phase == "screen-tiles" else {}
+            field_tiles = (complete(WORK / "field-tiles.json", fields, identity=tile_identity)
+                           if args.phase == "screen-tiles" else {})
             fitted, diagnostics = fit_quality(fields, field_rows, field_tiles, spec, config["quality_nms_iou"])
             candidates = [{"quality": dict(fitted, confidence=cutoff)} for cutoff in config["quality_cutoffs"]]
             if field_tiles:
-                candidates = [{"tiles": tiles}, *[dict(candidate, tiles=tiles) for candidate in candidates]]
+                candidates = [dict(candidate, tiles=tiles) for candidate in candidates]
         else:
             screened = read(args.candidate)
             if screened["partition"] != "validation" or not screened["eligible"]:
@@ -215,7 +223,8 @@ def main():
             diagnostics = screened["group_diagnostics"]
 
         for index, candidate in enumerate(candidates):
-            tile_rows = complete(WORK / f"{partition}-tiles.json", keys) if "tiles" in candidate else {}
+            tile_rows = (complete(WORK / f"{partition}-tiles.json", keys, identity=tile_identity)
+                         if "tiles" in candidate else {})
             predictions = {}
             for key in keys:
                 rec = labels[key]
