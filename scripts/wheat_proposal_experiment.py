@@ -21,7 +21,9 @@ from sweep_confidence import PROJECT, load_dataset, score_cutoffs, sha
 from fusion import fuse
 from metric import THRESHOLDS
 from model import create_model
-from proposals import as_array, overlaps, quality_candidates, rescore, tile_predictions, tile_rescue
+from proposals import (
+    as_array, overlaps, quality_candidates, refine_with_tiles, rescore, tile_predictions, tile_rescue,
+)
 from submission import predict_views
 from supplement import unpack_supplement
 
@@ -219,6 +221,8 @@ def main():
             candidates = [{"quality": dict(fitted, confidence=cutoff)} for cutoff in config["quality_cutoffs"]]
             if field_tiles:
                 candidates = [dict(candidate, tiles=tiles) for candidate in candidates]
+                candidates.insert(0, {"tiles": tiles, "quality": dict(
+                    fitted, confidence=0.58, refine_with_tiles=True)})
         else:
             screened = read(args.candidate)
             if screened["partition"] != "validation" or not screened["eligible"]:
@@ -236,8 +240,12 @@ def main():
                     proposals, features = quality_candidates([model[key] for model in rows],
                         tile_rows.get(key, []), rec["width"], rec["height"], spec["weights"],
                         spec["iou"], bool(tile_rows))
-                    predictions[key] = rescore(proposals, features, rec["width"], rec["height"],
-                                               candidate["quality"])
+                    quality = candidate["quality"]
+                    if quality.get("refine_with_tiles"):
+                        predictions[key] = refine_with_tiles(baseline[key], proposals, features,
+                                                             tile_rows[key], quality)
+                    else:
+                        predictions[key] = rescore(proposals, features, rec["width"], rec["height"], quality)
                 else:
                     predictions[key] = tile_rescue(baseline[key], tile_rows[key], candidate["tiles"])
             result = summarize(predictions, labels)

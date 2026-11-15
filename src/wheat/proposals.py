@@ -100,3 +100,34 @@ def rescore(candidates, features, width, height, spec):
     rows = np.column_stack((scores[selected], candidates[selected, 1:])).tolist()
     validate_predictions(rows, width, height)
     return rows
+
+
+def refine_with_tiles(baseline, candidates, features, tiles, spec):
+    """Use learned box quality to refine supported detections and rescue novel ones."""
+    if not tiles:
+        return baseline
+    tile_count = len(tiles)
+    tile_boxes = as_array(tiles)[:, 1:]
+    quality = np.clip(spec["intercept"] + features @ spec["coefficients"], 0, 1)
+    tile_quality = quality[-tile_count:]
+    reference = as_array(baseline)
+    similarities = overlaps(reference[:, 1:], tile_boxes)
+    updated = [row.copy() for row in baseline]
+    if len(reference):
+        owner = similarities.argmax(axis=0)
+        nearest = similarities.max(axis=0)
+        current = quality[:len(reference)]
+        # The baseline is the confidence-filtered prefix of the sorted WBF candidates.
+        if not np.allclose(reference, candidates[:len(reference)]):
+            raise ValueError("Expected baseline detections to prefix the quality candidates.")
+        for index, row in enumerate(reference):
+            supported = (owner == index) & (similarities[index] >= 0.50)
+            eligible = np.flatnonzero(supported & (tile_quality >= current[index] + 0.05))
+            if len(eligible):
+                best = eligible[tile_quality[eligible].argmax()]
+                updated[index][1:] = ((row[1:] + tile_boxes[best]) / 2).tolist()
+    else:
+        nearest = np.zeros(tile_count)
+    for index in np.flatnonzero((nearest < 0.30) & (tile_quality >= spec["confidence"])):
+        updated.append([float(tile_quality[index]), *tile_boxes[index].tolist()])
+    return updated

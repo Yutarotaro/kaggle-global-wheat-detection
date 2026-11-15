@@ -13,7 +13,7 @@ from data import sha
 from fusion import fuse
 from metric import validate_predictions
 from model import create_model
-from proposals import quality_candidates, rescore, tile_predictions, tile_rescue
+from proposals import quality_candidates, refine_with_tiles, rescore, tile_predictions, tile_rescue
 
 
 def kaggle_inputs(mounted, spec):
@@ -86,18 +86,19 @@ def predict(data_root, checkpoints, spec, output, device):
             tiles = spec.get("tiles")
             tile_rows = tile_predictions(models[tiles["model_index"]], tensor, tiles) if tiles else []
             quality = spec.get("quality")
-            if quality:
-                candidates, features = quality_candidates(rows, tile_rows, width, height,
-                                                         spec["weights"], spec["iou"], bool(tiles))
-                detections = rescore(candidates, features, width, height, quality)
-                writer.writerow((key, prediction_string(detections, width, height)))
-                continue
             if len(rows) == 1:
                 detections = rows[0]
             else:
                 detections = fuse(rows, width, height, spec["weights"], spec["iou"])
             detections = [box for box in detections if box[0] >= spec["confidence"]]
-            if tiles:
+            if quality:
+                candidates, features = quality_candidates(rows, tile_rows, width, height,
+                                                         spec["weights"], spec["iou"], bool(tiles))
+                if quality.get("refine_with_tiles"):
+                    detections = refine_with_tiles(detections, candidates, features, tile_rows, quality)
+                else:
+                    detections = rescore(candidates, features, width, height, quality)
+            elif tiles:
                 detections = tile_rescue(detections, tile_rows, tiles)
             writer.writerow((key, prediction_string(detections, width, height)))
     temporary.replace(output)
