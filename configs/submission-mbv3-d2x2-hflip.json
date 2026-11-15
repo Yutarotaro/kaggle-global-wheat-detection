@@ -1,0 +1,96 @@
+{
+  "notebook": "yutarotaro/wheat-infer-mbv3-d2x2-hflip",
+  "source_notebook": "submission-mbv3-d2x2-hflip.ipynb",
+  "run_label": "mbv3-d2x2-hflip",
+  "description": "Kaggle元データのみで学習したMobileNetV3 Faster R-CNNと2つのEfficientDet-D2。比較元の提出58374318に、epoch別固定検証で重みを選んだD2を追加した。各モデルが元画像と水平反転画像を推論しWBFで統合。モデルの重みは0.25:0.50:0.25。固定検証0.602975（比較0.598586）、独立確認0.573011（比較0.564296）。",
+  "wheel_dataset": "yutarotaro/wheat-offline-inference-wheels",
+  "wheels": {
+    "effdet-0.4.1-py3-none-any.whl": "10889a226228d515c948e3fcf811e64c0d78d7aa94823a300045653b9c284cb7",
+    "ensemble_boxes-1.0.9-py3-none-any.whl": "f095f34d28034213791b8793b9de4d8ba6e40e6a2a6af02336b84c485d853d6a",
+    "timm-1.0.22-py3-none-any.whl": "888981753e65cbaacfc07494370138b1700a27b1f0af587f4f9b47bc024161d0"
+  },
+  "models": [
+    {
+      "trial_id": "8fc98f3e68e8441a-0001",
+      "notebook": "yutarotaro/wheat-train-mbv3-12e-640-hflip-ef473611c538/1",
+      "sha256": "5e2e80f444bd82b2d892eef710836f3fb6cf45d5028ae8bbd97bd062bbbfe1df",
+      "config": {
+        "image_size": 640,
+        "run_label": "mbv3-12e-640-hflip",
+        "epochs": 12,
+        "batch_size": 4,
+        "learning_rate": 0.0001,
+        "horizontal_flip": 0.5,
+        "vertical_flip": 0,
+        "color_jitter": 0,
+        "validation_loss": true,
+        "confidence": 0.3,
+        "nms": 0.5
+      }
+    },
+    {
+      "trial_id": "d31623fdd5114e49-0001",
+      "notebook": "yutarotaro/wheat-train-effdet-d2-6e-768-b995f1851fd0/1",
+      "sha256": "3d565f728235bb868541a55e6bae1248dc2a71167d480dbce3dadf3f83dc5bf3",
+      "config": {
+        "detector": "efficientdet-d2",
+        "image_size": 768,
+        "run_label": "effdet-d2-6e-768",
+        "epochs": 6,
+        "batch_size": 4,
+        "learning_rate": 0.0001,
+        "horizontal_flip": 0.5,
+        "vertical_flip": 0,
+        "color_jitter": 0,
+        "mosaic": 0,
+        "validation_loss": true,
+        "confidence": 0.3,
+        "nms": 0.5
+      }
+    },
+    {
+      "trial_id": "1d692cda0f6e4cd2-0001",
+      "notebook": "yutarotaro/wheat-train-effdet-d2-6e-768-epoch-sc-504712498bd0/1",
+      "sha256": "f95951573cca7fb7a6a048e7b78165284f7cf058b531d42c21425ac5503ae099",
+      "config": {
+        "detector": "efficientdet-d2",
+        "image_size": 768,
+        "run_label": "effdet-d2-6e-768-epoch-score",
+        "epochs": 6,
+        "batch_size": 4,
+        "learning_rate": 0.0001,
+        "horizontal_flip": 0.5,
+        "vertical_flip": 0,
+        "color_jitter": 0,
+        "mosaic": 0,
+        "validation_loss": true,
+        "confidence": 0.3,
+        "nms": 0.5,
+        "use_training_supplement": false
+      }
+    }
+  ],
+  "weights": [
+    0.25,
+    0.5,
+    0.25
+  ],
+  "confidence": 0.34,
+  "iou": 0.45,
+  "validation_score": 0.6029749020090281,
+  "holdout_score": 0.5730111940999111,
+  "tta_flips": [
+    "horizontal"
+  ],
+  "tta_iou": 0.55,
+  "validation_by_source": {
+    "rres_1": 0.7114418296500798,
+    "arvalis_2": 0.37328023171033065
+  },
+  "holdout_by_source": {
+    "inrae_1": 0.6483249793746219,
+    "arvalis_3": 0.5492988037450828
+  },
+  "variant": "add-detector",
+  "primary_trial_id": "1d692cda0f6e4cd2-0001"
+}
