@@ -165,12 +165,12 @@ flowchart TB
     D["D2 · 元データのみ<br/>最良epochを保存<br/>固定検証 0.539742<br/>commit 83c9c31"]
     F["D2 · 追加385枚<br/>撮影元を増やす<br/>固定検証 0.547748<br/>commit 77083de"]
     C["D2 · 拡大クロップ50%<br/>画角を変えて学習<br/>固定検証 0.584042<br/>commit aa2cb62"]
-    N["D2 · 背景クロップ5%<br/>誤検出の低下を比較<br/>学習中<br/>commit 2edc4ff"]
+    N["D2 · 背景クロップ5%<br/>誤検出の低下を比較<br/>固定検証 0.597398<br/>commit 2edc4ff"]
     S["3モデルの反転TTA<br/>固定検証 0.602975<br/>独立確認 0.573011<br/>Public 0.6867<br/>Private 0.5787<br/>提出 58377134 · v1<br/>commit 2edc4ff"]
-    Z["拡大クロップD2に入れ替え<br/>撮影元をまたぐ改善を確認<br/>固定検証 0.620481<br/>学習 commit aa2cb62"]
-    T["RT-DETRv2-R18<br/>直接枠を予測する方式<br/>設定 commit fcdb053"]
+    Z["拡大クロップD2に入れ替え<br/>撮影元をまたぐ改善を確認<br/>固定検証 0.620481<br/>独立確認 0.587522<br/>学習 commit aa2cb62"]
+    T["RT-DETRv2-R18<br/>直接枠を予測する方式<br/>固定検証 0.215746<br/>commit 34c041d"]
     R["Faster R-CNN R50 v2<br/>FPNと特徴抽出器を比較<br/>設定 commit 3d95a8b"]
-    L["D2 · 12 epoch<br/>元データで長さを比較<br/>設定 commit 9b3277c"]
+    L["D2 · 12 epoch<br/>元データでクロップと負例<br/>設定 commit 3cbb409"]
 
     D --> F --> C --> N
     C --> Z
@@ -179,6 +179,7 @@ flowchart TB
     M --> S
     D --> T
     D --> L
+    N --> L
     M --> R
 ```
 
