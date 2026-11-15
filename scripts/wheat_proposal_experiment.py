@@ -7,6 +7,7 @@ import json
 import math
 import subprocess
 import sys
+from collections import Counter
 from contextlib import ExitStack
 from pathlib import Path
 from zipfile import ZipFile
@@ -85,6 +86,8 @@ def supplement_labels(dataset, boxes):
         with Image.open(dataset / "train" / f"{key}.jpg") as image:
             width, height = image.size
         result[key] = {"source": groups[key], "width": width, "height": height, "boxes": rows}
+    if Counter(record["source"] for record in result.values()) != manifest["sessions"]:
+        raise ValueError("Supplement image domains differ from the audited manifest.")
     return result
 
 
@@ -126,11 +129,12 @@ def fit_quality(labels, rows, tiles, spec, nms):
 
 
 def summarize(pred, labels):
-    score = score_cutoffs(pred, labels, [0])[0]
-    sources = sorted({labels[key]["source"] for key in pred})
-    return {"score": score, "by_source": {source: score_cutoffs(
-        {key: rows for key, rows in pred.items() if labels[key]["source"] == source}, labels, [0])[0]
-        for source in sources}}
+    groups = {}
+    for key, rows in pred.items():
+        groups.setdefault(labels[key]["source"], {})[key] = rows
+    by_source = {group: score_cutoffs(rows, labels, [0])[0] for group, rows in sorted(groups.items())}
+    score = sum(result * len(groups[group]) for group, result in by_source.items()) / len(pred)
+    return {"score": score, "by_source": by_source}
 
 
 def complete(path, keys, envelope=True, identity=None):
@@ -245,7 +249,8 @@ def main():
                       "group_diagnostics": diagnostics}
             stem = f"{args.phase}-{index}"
             write(WORK / f"{stem}.json", report)
-            write(WORK / f"{stem}-predictions.json", {"images": predictions})
+            write(WORK / f"{stem}-predictions.json", {"images": predictions, "environment": {
+                "git_commit": commit, "split_sha256": sha(SPLIT), "recipe": candidate}})
             print(stem, json.dumps(report, ensure_ascii=False), flush=True)
 
 
