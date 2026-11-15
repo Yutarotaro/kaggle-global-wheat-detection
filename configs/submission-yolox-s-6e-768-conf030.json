@@ -1,0 +1,39 @@
+{
+  "notebook": "yutarotaro/wheat-infer-yolox-s-6e-768-conf030",
+  "source_notebook": "submission-yolox-s-6e-768-conf030.ipynb",
+  "run_label": "yolox-s-6e-768-conf030",
+  "description": "COCO事前学習済みYOLOX-S、768px、6 epoch、横反転0.5、seed 42。単体推論、confidence 0.30、NMS IoU 0.50。固定検証636枚のWheat Image Precisionは0.345790。比較対象はMobileNetV3 Faster R-CNN単体の提出58331537と、D2＋Faster R-CNNの提出58342094。",
+  "wheel_dataset": "yutarotaro/wheat-yolox-offline-runtime",
+  "wheels": {
+    "loguru-0.7.3-py3-none-any.whl": "31a33c10c8e1e10422bfd431aeb5d351c7cf7fa671e3c4df004162264b28220c",
+    "thop-0.1.1.post2209072238-py3-none-any.whl": "01473c225231927d2ad718351f78ebf7cffe6af3bed464c4f1ba1ef0f7cdda27"
+  },
+  "yolox_source": {
+    "file": "wheat-yolox-source.bin",
+    "sha256": "68e5d3abea0337c92e051816edd9182d78aa67424ac3cfea32664ea8f32e7e81"
+  },
+  "models": [
+    {
+      "trial_id": "602ac2d18a3042dc-0001",
+      "notebook": "yutarotaro/wheat-train-yolox-s-6e-768-hflip-3c34d8001e01/1",
+      "sha256": "a268feb6df5711421084de9f4abc5dbbf641355cb4049ce89e18ccb29bf8faf5",
+      "config": {
+        "detector": "yolox-s",
+        "image_size": 768,
+        "run_label": "yolox-s-6e-768-hflip",
+        "epochs": 6,
+        "batch_size": 4,
+        "learning_rate": 0.0001,
+        "horizontal_flip": 0.5,
+        "vertical_flip": 0,
+        "color_jitter": 0,
+        "mosaic": 0,
+        "validation_loss": true,
+        "confidence": 0.3,
+        "nms": 0.5
+      }
+    }
+  ],
+  "confidence": 0.3,
+  "validation_score": 0.34578952575630983
+}
