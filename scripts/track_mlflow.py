@@ -79,7 +79,8 @@ def epoch_losses(path):
         values = json.loads(payload)
         rows.setdefault(int(epoch), {}).update(
             (name, float(value)) for name, value in values.items()
-            if name.startswith("valid_") and type(value) in (int, float) and math.isfinite(value)
+            if (name.startswith("valid_") or name == "train_background_crops")
+            and type(value) in (int, float) and math.isfinite(value)
         )
     return rows
 

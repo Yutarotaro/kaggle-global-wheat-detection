@@ -14,6 +14,7 @@ from evaluate import evaluate
 from metric import image_score, match
 from preprocess import mosaic, zoom_crop
 from render_previews import render_previews
+from train import BackgroundSampler, load_backgrounds
 
 
 def test_mosaic_clips_and_translates_boxes(monkeypatch):
@@ -46,6 +47,31 @@ def test_zoom_crop_preserves_visible_boxes_and_labels():
     assert target["boxes"].tolist() == [[3, 7, 24, 29], [0, 15, 10, 30]]
     assert target["labels"].tolist() == [1, 2]
     assert boxes[1, 0].item() == 10
+
+
+def test_background_sampler_keeps_epoch_length_and_uses_distinct_crops():
+    sampler = BackgroundSampler(range(10), 10, 20, 5, .2, 42)
+    sampled = list(sampler)
+    backgrounds = [index for index in sampled if index >= 20]
+    assert len(sampled) == len(sampler) == 10
+    assert len(set(backgrounds)) == sampler.negative_count == 2
+    assert all(original == sampled[position] for position, original in enumerate(range(10))
+               if sampled[position] < 20)
+
+
+def test_background_manifest_rejects_annotated_region(tmp_path):
+    split = tmp_path / "split.json"
+    split.write_text("{}")
+    manifest = tmp_path / "background.json"
+    payload = {"split_sha256": sha(split), "images": {"training-image": [10, 10, 40, 40]}}
+    dimensions = {"training-image": (100, 100)}
+    labels = {"training-image": [[42, 45, 50, 52]]}
+    manifest.write_text(json.dumps(payload))
+    assert load_backgrounds(manifest, split, dimensions, labels) == [("training-image", [10, 10, 40, 40])]
+    payload["images"]["training-image"] = [10, 10, 42, 47]
+    manifest.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match="intersects"):
+        load_backgrounds(manifest, split, dimensions, labels)
 
 
 def test_metric_penalizes_duplicates_and_respects_confidence():

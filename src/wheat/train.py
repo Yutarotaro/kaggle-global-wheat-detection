@@ -4,6 +4,7 @@ import argparse
 import csv
 import hashlib
 import json
+import math
 import os
 import platform
 import random
@@ -15,7 +16,7 @@ from pathlib import Path
 import torch
 import torchvision
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset, RandomSampler
+from torch.utils.data import DataLoader, Dataset, RandomSampler, Sampler
 from torchvision.transforms import ColorJitter
 
 from data import sha
@@ -28,21 +29,31 @@ from supplement import unpack_supplement
 
 class Images(Dataset):
     def __init__(self, root, ids, boxes, flip=0, vertical_flip=0, color_jitter=0, mosaic_probability=0,
-                 extra_root=None, crop_probability=0, seed=42, extra_keys=()):
+                 extra_root=None, crop_probability=0, seed=42, extra_keys=(), backgrounds=()):
         self.root, self.ids, self.boxes, self.flip = root, ids, boxes, flip
         self.vertical_flip = vertical_flip
         self.mosaic_probability = mosaic_probability
         self.extra_root = extra_root
         self.extra_keys = set(extra_keys)
+        self.backgrounds = backgrounds
         self.crop_probability = crop_probability
         self.crop_rng = random.Random(seed)
         self.color_jitter = (ColorJitter(brightness=color_jitter, contrast=color_jitter,
                                         saturation=color_jitter) if color_jitter else None)
 
     def __len__(self):
-        return len(self.ids)
+        return len(self.ids) + len(self.backgrounds)
 
     def __getitem__(self, i):
+        if i >= len(self.ids):
+            key, (left, top, right, bottom) = self.backgrounds[i - len(self.ids)]
+            image, target = read_image(self.root / "train" / f"{key}.jpg", [], 0)
+            image = image[:, top:bottom, left:right]
+            if self.flip and random.random() < self.flip:
+                image = image.flip(-1)
+            if self.color_jitter is not None:
+                image = self.color_jitter(image)
+            return image, target
         if self.mosaic_probability and random.random() < self.mosaic_probability:
             partners = random.sample(range(len(self.ids) - 1), 3)
             return mosaic([self.load(i), *(self.load(j + (j >= i)) for j in partners)])
@@ -60,6 +71,48 @@ class Images(Dataset):
 
 def collate(samples):
     return tuple(zip(*samples))
+
+
+class BackgroundSampler(Sampler):
+    def __init__(self, positives, total, positive_pool, background_pool, fraction, seed):
+        self.positives = positives
+        self.total = total
+        self.positive_pool = positive_pool
+        self.background_pool = background_pool
+        self.negative_count = round(total * fraction)
+        self.rng = random.Random(seed)
+        if not 0 < self.negative_count < total or self.negative_count > background_pool:
+            raise ValueError("Expected enough distinct backgrounds for the requested fraction.")
+
+    def __len__(self):
+        return self.total
+
+    def __iter__(self):
+        indices = list(self.positives)
+        positions = self.rng.sample(range(self.total), self.negative_count)
+        backgrounds = self.rng.sample(range(self.background_pool), self.negative_count)
+        for position, index in zip(positions, backgrounds, strict=True):
+            indices[position] = self.positive_pool + index
+        return iter(indices)
+
+
+def load_backgrounds(path, split_path, dims, boxes):
+    spec = json.loads(path.read_text())
+    regions = spec["images"]
+    if spec["split_sha256"] != sha(split_path) or not regions or not regions.keys() <= dims.keys():
+        raise ValueError("Background crops must originate in the fixed training split.")
+    for key, crop in regions.items():
+        width, height = dims[key]
+        if len(crop) != 4 or not all(type(value) is int for value in crop):
+            raise ValueError(f"Expected four integer crop coordinates: {key}.")
+        left, top, right, bottom = crop
+        if not (0 <= left < right <= width and 0 <= top < bottom <= height):
+            raise ValueError(f"Background crop is out of bounds: {key}.")
+        pad_x, pad_y = math.ceil(.015 * width), math.ceil(.015 * height)
+        if any(left < r + pad_x and right > l - pad_x and top < b + pad_y and bottom > t - pad_y
+               for l, t, r, b in boxes[key]):
+            raise ValueError(f"Background crop intersects a wheat annotation: {key}.")
+    return sorted(regions.items())
 
 
 def detection_loss(model, images, labels, device):
@@ -140,6 +193,7 @@ def main(resources):
     parser.add_argument("--epoch-previews", action="store_true", help="Save predictions for four fixed validation images.")
     parser.add_argument("--mons-supplement", type=Path, help="Manifest for the optional Arvalis_10 training data.")
     parser.add_argument("--training-supplement", type=Path, help="Pinned supplement used when enabled in the config.")
+    parser.add_argument("--background-crops", type=Path, help="Frozen crops with no annotated wheat heads.")
     parser.add_argument("--epoch-scores", action="store_true", help="Score fixed validation after every epoch.")
     args = parser.parse_args()
     if args.partition == "holdout" and not args.weights:
@@ -157,6 +211,13 @@ def main(resources):
     config.setdefault("validation_loss", False)
     config.setdefault("mosaic", 0)
     config.setdefault("zoom_crop_probability", 0)
+    config.setdefault("background_fraction", 0)
+    if not 0 <= config["background_fraction"] < 1:
+        raise ValueError("Background fraction must be in [0, 1).")
+    if config["background_fraction"] and not args.weights and (
+        not args.background_crops or args.data_source != "competition"
+    ):
+        parser.error("Background augmentation requires a competition training crop manifest.")
     if not 0 <= config["mosaic"] <= 1:
         raise ValueError("Mosaic probability must be in [0, 1].")
     if not 0 <= config["zoom_crop_probability"] <= 1 or config["zoom_crop_probability"] and config["mosaic"]:
@@ -181,6 +242,8 @@ def main(resources):
             sample[0], labels[0] = mosaic([(sample[0], labels[0])] * 4)
         if config["zoom_crop_probability"]:
             sample[0], labels[0] = zoom_crop(sample[0], labels[0], random.Random(seed))
+        if config["background_fraction"]:
+            labels[1] = {"boxes": torch.empty(0, 4), "labels": torch.empty(0, dtype=torch.int64)}
         loss = sum(model(sample, labels).values())
         if not torch.isfinite(loss):
             raise ValueError("Smoke loss is not finite.")
@@ -242,6 +305,7 @@ def main(resources):
         raise ValueError("Validation loss requires separate validation annotations in the training environment.")
     boxes = defaultdict(list)
     valid_metadata = {}
+    train_dimensions = {}
     with (data / "train.csv").open(newline="") as handle:
         for row in csv.DictReader(handle):
             if row["image_id"] in train_ids or row["image_id"] in valid_loss_ids:
@@ -249,6 +313,8 @@ def main(resources):
                 boxes[row["image_id"]].append([x, y, x + w, y + h])
                 if args.epoch_scores and row["image_id"] in valid_loss_ids:
                     valid_metadata[row["image_id"]] = row["source"], int(row["width"]) * int(row["height"])
+                if args.background_crops and row["image_id"] in train_ids:
+                    train_dimensions[row["image_id"]] = int(row["width"]), int(row["height"])
     if valid_loss_ids - boxes.keys():
         raise ValueError("Missing validation annotations for validation loss.")
 
@@ -277,11 +343,17 @@ def main(resources):
     else:
         if config["mosaic"] and len(train_ids) < 4:
             raise ValueError("Mosaic requires at least four training images.")
+        backgrounds = (load_backgrounds(project / args.background_crops, project / split_path, train_dimensions, boxes)
+                       if config["background_fraction"] else [])
         dataset = Images(data, sorted(train_ids | extra.keys()), boxes, config["horizontal_flip"],
                          config["vertical_flip"], config["color_jitter"], config["mosaic"], extra_root,
-                         crop_probability=config["zoom_crop_probability"], seed=seed, extra_keys=extra)
-        sampler = (RandomSampler(dataset, num_samples=len(train_ids), generator=torch.Generator().manual_seed(seed))
-                   if extra else None)
+                         crop_probability=config["zoom_crop_probability"], seed=seed, extra_keys=extra,
+                         backgrounds=backgrounds)
+        sampler = (RandomSampler(range(len(dataset.ids)), num_samples=len(train_ids),
+                                 generator=torch.Generator().manual_seed(seed)) if extra or backgrounds else None)
+        if backgrounds:
+            sampler = BackgroundSampler(sampler, len(train_ids), len(dataset.ids), len(backgrounds),
+                                        config["background_fraction"], seed)
         loader = DataLoader(dataset, batch_size=config["batch_size"], sampler=sampler, shuffle=sampler is None,
                             collate_fn=collate, generator=torch.Generator().manual_seed(seed))
         valid_loader = None
@@ -320,6 +392,8 @@ def main(resources):
             if args.epoch_scores:
                 epoch_predictions = predict(model, data, inference_ids, device)
                 score, diagnostics = validation_diagnostics(epoch_predictions, boxes, valid_metadata)
+                if backgrounds:
+                    diagnostics["train_background_crops"] = sampler.negative_count
                 progress += f" valid_wheat_image_precision {score:.9f}"
                 if score > best_score:
                     best_score, best_epoch = score, epoch + 1

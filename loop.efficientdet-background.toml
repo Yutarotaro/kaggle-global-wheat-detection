@@ -1,0 +1,46 @@
+seed = 42
+require_trial_commits = true
+baseline_reference = "01c9cca66fb4432c-0001"
+baseline_hypothesis = "D2 + 拡大クロップの学習と同じ入力数にそろえ、各epochの100サンプルを穂の注釈と重ならない背景クロップに置き換える。誤検出が減るか、小さい穂の検出も維持できるかを比較する。"
+runtime_s = 5400
+agent_s = 600
+smoke_s = 180
+evaluate_s = 300
+poll_s = 10
+editable = ["configs/efficientdet-background.json"]
+
+[selection]
+group_metric = "by_source"
+max_group_regression = 0.01
+
+[agent]
+type = "config-sweep"
+aggregate_only = true
+path = "configs/efficientdet-background.json"
+
+[[agent.variants]]
+hypothesis = "同じ分割・拡大クロップ学習で、背景クロップだけを外して比較する。"
+overrides = {run_label = "d2-6e-768-zoom50-neg00", background_fraction = 0}
+
+[executor]
+type = "kaggle"
+owner = "yutarotaro"
+binary = ".venv/bin/kaggle"
+competition = "global-wheat-detection"
+dataset_sources = ["yutarotaro/wheat-gwhd2021-field385"]
+notebook_prefix = "wheat-train"
+notebook_label_file = "configs/efficientdet-background.json"
+notebook_exclude_dirs = ["docs", "notebooks", "scripts", "tests", ".github"]
+accelerator = "NvidiaTeslaT4"
+internet = true
+
+[task]
+type = "command"
+interpreter = ".venv/bin/python"
+metric = "wheat_image_precision"
+direction = "max"
+train = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-background.json", "--training-supplement", "data/gwhd2021/field385/manifest.json", "--background-crops", "data/prepared/background-crops.json", "--epoch-previews", "--epoch-scores"]
+smoke = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-background.json", "--training-supplement", "data/gwhd2021/field385/manifest.json", "--background-crops", "data/prepared/background-crops.json", "--smoke"]
+evaluate = ["python", "src/wheat/evaluate.py"]
+dataset_manifest = "data/prepared/split.json"
+remote_inputs = ["data/prepared/split.json", "data/prepared/background-crops.json", "data/gwhd2021/field385/manifest.json"]
