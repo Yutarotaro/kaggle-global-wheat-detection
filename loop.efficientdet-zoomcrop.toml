@@ -30,7 +30,7 @@ competition = "global-wheat-detection"
 dataset_sources = ["yutarotaro/wheat-gwhd2021-field385"]
 notebook_prefix = "wheat-train"
 notebook_label_file = "configs/efficientdet-zoomcrop.json"
-notebook_exclude_dirs = ["docs/figures"]
+notebook_exclude_dirs = ["docs", "notebooks", "scripts", "tests", ".github"]
 accelerator = "NvidiaTeslaT4"
 internet = true
 
