@@ -3,7 +3,9 @@
 import argparse
 import json
 import math
+import sqlite3
 import subprocess
+from contextlib import closing
 from pathlib import Path
 
 import torch
@@ -27,6 +29,34 @@ def write(path, data):
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(data, indent=2, allow_nan=False) + "\n")
     temporary.replace(path)
+
+
+def trial_condition(path):
+    if path.is_file():
+        return read(path)
+    trial = path.name
+    state = PROJECT / ".loop-wheat" / trial.rsplit("-", 1)[0]
+    expected = state / "artifacts" / trial
+    if path.resolve() != expected.resolve():
+        raise ValueError(f"Expected a condition file or a wheat trial directory: {path}.")
+    uri = (state / "state.sqlite").as_uri() + "?mode=ro"
+    with closing(sqlite3.connect(uri, uri=True)) as database:
+        (payload,) = database.execute("SELECT value FROM trials WHERE id=?", (trial,)).fetchone()
+        metadata = dict(database.execute("SELECT key, value FROM metadata WHERE key IN ('session', 'identity')"))
+    record = json.loads(payload)
+    session = json.loads(metadata["session"])
+    if record["status"] != "succeeded" or not record.get("git_commit") or not record.get("handle"):
+        raise ValueError("Expected a successfully evaluated, committed Kaggle training run.")
+    for name in ("data.py", "evaluate.py", "metric.py"):
+        relative = Path("src/wheat") / name
+        if sha(state / "trusted" / relative) != sha(PROJECT / relative):
+            raise ValueError(f"Training run used a different evaluator: {name}.")
+    identity = json.loads(metadata["identity"])
+    if identity["task"]["input:data/prepared/split.json"] != sha(SPLIT):
+        raise ValueError("Training run used a different data split.")
+    config = session["spec"]["executor"]["notebook_label_file"]
+    return {"trial_id": trial, "notebook": record["handle"], "sha256": sha(path / "weights.pt"),
+            "config": read(state / "sources" / trial / config)}
 
 
 def predict(condition, partition, keys, device, path):
@@ -103,7 +133,7 @@ def main():
     device = torch.device(args.device)
     torch.set_num_threads(3)
     args.output.mkdir(parents=True, exist_ok=True)
-    model = read(args.model)
+    model = trial_condition(args.model)
     incumbent = read(BASELINE)
     incumbent_rows = ([view[1] for view in read(PROJECT / "outputs/field385/tta-predictions.json")]
                       if args.partition == "validation" else
@@ -136,6 +166,7 @@ def main():
         pass_guard = result["score"] > reference["score"] and all(
             result["by_source"][key] >= value - 0.01 for key, value in reference["by_source"].items())
         report = {"partition": args.partition, "eligible": pass_guard, "git_commit": commit,
+                  "candidate_trial": model["trial_id"],
                   "spec": recipe, "baseline": reference, "result": result, "split_sha256": sha(SPLIT)}
         write(args.output / f"{args.partition}-{recipe['variant']}.json", report)
         print(recipe["variant"], result, f"eligible={pass_guard}", flush=True)
