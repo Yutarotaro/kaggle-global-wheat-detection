@@ -28,11 +28,12 @@ from supplement import unpack_supplement
 
 class Images(Dataset):
     def __init__(self, root, ids, boxes, flip=0, vertical_flip=0, color_jitter=0, mosaic_probability=0,
-                 extra_root=None, crop_probability=0, seed=42):
+                 extra_root=None, crop_probability=0, seed=42, extra_keys=()):
         self.root, self.ids, self.boxes, self.flip = root, ids, boxes, flip
         self.vertical_flip = vertical_flip
         self.mosaic_probability = mosaic_probability
         self.extra_root = extra_root
+        self.extra_keys = set(extra_keys)
         self.crop_probability = crop_probability
         self.crop_rng = random.Random(seed)
         self.color_jitter = (ColorJitter(brightness=color_jitter, contrast=color_jitter,
@@ -52,7 +53,7 @@ class Images(Dataset):
 
     def load(self, i):
         key = self.ids[i]
-        root = self.extra_root if self.extra_root and key.startswith("gwhd2021-") else self.root
+        root = self.extra_root if key in self.extra_keys else self.root
         return read_image(root / "train" / f"{key}.jpg", self.boxes.get(key, []),
                           self.flip, self.vertical_flip, self.color_jitter)
 
@@ -278,7 +279,7 @@ def main(resources):
             raise ValueError("Mosaic requires at least four training images.")
         dataset = Images(data, sorted(train_ids | extra.keys()), boxes, config["horizontal_flip"],
                          config["vertical_flip"], config["color_jitter"], config["mosaic"], extra_root,
-                         crop_probability=config["zoom_crop_probability"], seed=seed)
+                         crop_probability=config["zoom_crop_probability"], seed=seed, extra_keys=extra)
         sampler = (RandomSampler(dataset, num_samples=len(train_ids), generator=torch.Generator().manual_seed(seed))
                    if extra else None)
         loader = DataLoader(dataset, batch_size=config["batch_size"], sampler=sampler, shuffle=sampler is None,

@@ -1,6 +1,7 @@
 """Load optional training-only wheat images from a pinned archive."""
 
 import json
+import re
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
@@ -24,9 +25,11 @@ def load_supplement(manifest_path, archive, destination, fixed_split):
         prefix = spec.get("image_prefix", "gwhd2021-mons-")
         if not annotation or Path(annotation).name != annotation:
             raise ValueError("Expected a supplement annotation filename.")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]*-", prefix):
+            raise ValueError("Expected a dataset-specific image prefix.")
         records = json.loads(bundle.read(annotation))
         if not records or len(records) != spec["images"] or any(
-            not key.startswith(prefix) or not key.startswith("gwhd2021-") or Path(key).name != key
+            not key.startswith(prefix) or Path(key).name != key
             for key in records
         ):
             raise ValueError("Invalid supplement image IDs.")
