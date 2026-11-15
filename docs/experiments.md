@@ -29,6 +29,8 @@ KaggleのTesla T4でMobileNetV3 Faster R-CNNを画像サイズ640、3 epoch、�
 
 ## 試行の系譜と次の比較
 
+学習の派生とアンサンブルへの合流は [実験系譜](experiment-lineage.md) を参照。
+
 | 試行 | 比較元 | 試したアイデア | 固定検証 | 親との差 |
 | --- | --- | --- | ---: | ---: |
 | `10a1829d2fc84c67-0001` | 基準 | MobileNetV3 Faster R-CNN、640px、3 epoch、横反転 | 0.445099 | — |
@@ -169,6 +171,18 @@ holdoutは未評価。MacのCPUでMobileNetV3 Faster R-CNNを画像サイズ256�
 検証スコアは **0.004615**。Kaggle取得は403で、これは公開修正版の14枚だけを使った接続確認。
 Kaggleのスコアや全データのベースラインには使用しない。設定、分割、重み、評価値、
 誤検出画像はローカルの `data/gwhd2020-v4/smoke-project/` に保存した。
+
+## 2026-11-15 YOLOX-Sの単体とWBF
+
+`602ac2d18a3042dc-0001` はCOCOで事前学習したYOLOX-Sを768pxで6 epoch学習した。
+元のKaggle画像2,002枚を毎epoch入力し、確率0.5で横反転。固定検証ではconfidence 0.30で
+**0.345790**、confidence 0.40で **0.345630**。小さい穂の再現率は0.30で19.44%。
+同じconfidence 0.40と均等重みのWBFで、D2＋YOLOX-Sは **0.477607**、
+D2＋Faster R-CNN＋YOLOX-Sは **0.557939**。既存のD2＋Faster R-CNN **0.580485** を次の基準に使う。
+
+YOLOX-S単体をconfidence 0.30でKaggleに提出した（ID `58362730`、推論Notebook v1、
+commit `dcb26bd`）。[実験系譜](experiment-lineage.md#kaggleへの提出) ·
+[学習Run](http://localhost:5050/#/experiments/1/runs/4187c38c343e49c3a7dfdd9fd66dd85f)
 
 ## 候補の採否と次の仮説
 

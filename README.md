@@ -12,8 +12,8 @@
 [ML Research Loop](https://github.com/Yutarotaro/ml-research-loop)に接続済み。
 固定分割、採点、GPU向け学習・推論、独立評価によるエラー画像出力を実装した。
 Kaggle公式データでGPUベースラインと短時間の改善試行を実行した。
-再現条件とスコアは [実験記録](docs/experiments.md) を参照。
-撮影元ごとの画像枚数・穂数・枠サイズは [データ分布の集計](docs/data-profile.md) を参照。
+再現条件とスコアは [実験記録](docs/experiments.md)、分岐と合流は [実験系譜](docs/experiment-lineage.md) を参照。
+撮影元ごとの画像枚数・穂数・枠サイズ・明るさは [データ分布の集計](docs/data-profile.md) を参照。
 提出 `58342094` までの手法・モデル構成図・評価結果は [技術論文ドラフト](docs/paper-58342094.md) を参照。
 
 ## 環境
