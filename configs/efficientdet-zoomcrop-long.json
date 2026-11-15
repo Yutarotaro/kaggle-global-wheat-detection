@@ -1,7 +1,7 @@
 {
   "detector": "efficientdet-d2",
   "image_size": 768,
-  "run_label": "d2-12e-768-kaggle-zoom50",
+  "run_label": "d2-12e-768-zoom50-neg05",
   "epochs": 12,
   "batch_size": 4,
   "learning_rate": 0.0001,
@@ -10,6 +10,7 @@
   "color_jitter": 0,
   "mosaic": 0,
   "zoom_crop_probability": 0.5,
+  "background_fraction": 0.05,
   "validation_loss": true,
   "confidence": 0.3,
   "nms": 0.5,
