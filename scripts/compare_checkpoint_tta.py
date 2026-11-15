@@ -14,6 +14,7 @@ from sweep_confidence import PROJECT, load_dataset, score_cutoffs, sha
 from fusion import fuse
 from model import create_model
 from preprocess import read_image
+from proposals import tile_rescue
 from submission import predict_views
 
 RAW = PROJECT / "data/raw"
@@ -99,15 +100,18 @@ def predict(condition, partition, keys, device, path):
     return rows
 
 
-def score(sources, labels, ids, spec):
+def score(sources, labels, ids, spec, tiles=None):
     partitions = {}
     cutoff = spec["confidence"]
     for key in ids:
         row = labels[key]
         guesses = fuse([source[key] for source in sources], row["width"], row["height"],
                        spec["weights"], spec["iou"])
-        partitions.setdefault(row["source"], {})[key] = [box for box in guesses if box[0] >= cutoff]
-    by_source = {group: score_cutoffs(rows, labels, [cutoff])[cutoff] for group, rows in partitions.items()}
+        guesses = [box for box in guesses if box[0] >= cutoff]
+        if tiles is not None:
+            guesses = tile_rescue(guesses, tiles[key], spec["tiles"])
+        partitions.setdefault(row["source"], {})[key] = guesses
+    by_source = {group: score_cutoffs(rows, labels, [0])[0] for group, rows in partitions.items()}
     combined = sum(value * len(partitions[group]) for group, value in by_source.items()) / len(ids)
     return {"score": combined, "by_source": by_source}
 
@@ -119,6 +123,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--device", default="mps")
     parser.add_argument("--candidate", type=Path, help="Eligible frozen validation recipe for holdout.")
+    parser.add_argument("--tile-predictions", type=Path, help="Candidate's frozen tile predictions.")
     args = parser.parse_args()
     if (args.partition == "holdout") != (args.candidate is not None):
         parser.error("Holdout requires exactly one frozen validation candidate.")
@@ -161,8 +166,24 @@ def main():
         if not selected["eligible"] or selected["partition"] != "validation":
             raise ValueError("Holdout candidate must pass the fixed validation comparison.")
         recipes = [selected["spec"]]
+    tile_rows = None
+    if args.tile_predictions:
+        payload = read(args.tile_predictions)
+        tile_spec = read(PROJECT / "configs/experiment-tile-quality.json")["tiles"]
+        meta = payload["meta"]
+        if (meta["weights_sha256"] != model["sha256"] or meta["config"] != model["config"] or
+            meta["tiles"] != dict(tile_spec, model_index=0) or meta["split_sha256"] != sha(SPLIT) or
+            payload["images"].keys() != set(keys)):
+            raise ValueError("Tile predictions have the wrong model, configuration or image IDs.")
+        tile_rows = payload["images"]
+        if not args.candidate:
+            recipes = [dict(recipe, variant=recipe["variant"] + "-tiles",
+                            tiles=dict(tile_spec, model_index=[m["trial_id"] for m in recipe["models"]].index(
+                                model["trial_id"]))) for recipe in recipes]
+    if any(("tiles" in recipe) != bool(args.tile_predictions) for recipe in recipes):
+        raise ValueError("The frozen comparison and supplied tiles must agree.")
     for recipe in recipes:
-        result = score([rows[m["trial_id"]] for m in recipe["models"]], labels, keys, recipe)
+        result = score([rows[m["trial_id"]] for m in recipe["models"]], labels, keys, recipe, tile_rows)
         pass_guard = result["score"] > reference["score"] and all(
             result["by_source"][key] >= value - 0.01 for key, value in reference["by_source"].items())
         report = {"partition": args.partition, "eligible": pass_guard, "git_commit": commit,

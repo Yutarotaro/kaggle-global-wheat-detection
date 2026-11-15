@@ -68,18 +68,25 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("partition", choices=["validation", "holdout", "field"])
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--model", type=Path, help="Use the specified evaluated checkpoint.")
+    parser.add_argument("--label", default="d2")
     parser.add_argument("--save-notebook", action="store_true")
     args = parser.parse_args()
     config = json.loads((PROJECT / "configs/experiment-tile-quality.json").read_text())
     spec = json.loads((PROJECT / config["baseline"]).read_text())
     split_bytes = (PROJECT / "data/prepared/split.json").read_bytes()
     split = json.loads(split_bytes)
-    name = f"wheat-benchmark-d2-tiles-{args.partition}"
+    name = f"wheat-benchmark-{args.label}-tiles-{args.partition}"
     spec.update(notebook=f"yutarotaro/{name}", source_notebook=f"{name}.ipynb",
                 description=f"固定{args.partition}の画像でEfficientDet-D2の4タイル候補を採取する。"
                 "枠の評価・採用判定はローカルの固定評価で実施する。比較元は提出58370638。",
                 partition=args.partition, tiles=config["tiles"],
                 split_sha256=sha256(split_bytes).hexdigest(), csv_sha256=split["csv_sha256"])
+    if args.model:
+        conditions = json.loads(args.model.read_text())
+        spec.update(models=[conditions], tiles=dict(spec["tiles"], model_index=0),
+                    description=f"{conditions['config']['run_label']} の学習済み重みで、"
+                                f"固定{args.partition}の4タイル候補を採取する。")
     if args.partition == "field":
         manifest_bytes = (PROJECT / "data/gwhd2021/field385/manifest.json").read_bytes()
         manifest = json.loads(manifest_bytes)
