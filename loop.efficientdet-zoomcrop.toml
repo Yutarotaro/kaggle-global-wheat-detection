@@ -20,7 +20,7 @@ path = "configs/efficientdet-zoomcrop.json"
 
 [[agent.variants]]
 hypothesis = "同じ学習条件でクロップを外し、前回の学習を再現する。"
-overrides = {run_label = "effdet-d2-6e-768-field385-full", zoom_crop_probability = 0}
+overrides = {run_label = "d2-6e-768-gwhd385-full", zoom_crop_probability = 0}
 
 [executor]
 type = "kaggle"
