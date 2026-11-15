@@ -92,10 +92,23 @@ def plot_brightness(profile, output):
     save(fig, output / "wheat-data-brightness.png")
 
 
+def plot_small_head_sources(rows, output):
+    labels = [row["label"] for row in rows]
+    shares = [row["small_heads"] / row["heads"] for row in rows]
+    fig, ax = make_axis("画像面積の0.2%未満の穂", labels, "正解枠に占める割合", 2.4)
+    bars = ax.barh(range(len(rows)), shares, height=0.52, color=["#3159a9", "#627caa", "#a85429"])
+    ax.bar_label(bars, labels=[f"{share:.1%}" for share in shares], padding=7, color=FOREGROUND)
+    ax.set_xlim(0, 0.75)
+    ax.xaxis.set_major_locator(MultipleLocator(0.15))
+    ax.xaxis.set_major_formatter(PercentFormatter(xmax=1, decimals=0))
+    save(fig, output / "wheat-data-additional-small-heads.png")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("profile", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--supplement-summary", type=Path, help="Aggregated data sources and small head counts.")
     args = parser.parse_args()
     font = next((name for name in FONT_CANDIDATES if name in font_manager.get_font_names()), None)
     if font is None:
@@ -114,6 +127,8 @@ def main():
                       ("#b75824", "#8fb3dd", "#345895"), "box-areas")
     if "brightness" in profile["partitions"]["train"]["all"]:
         plot_brightness(profile, args.output)
+    if args.supplement_summary:
+        plot_small_head_sources(json.loads(args.supplement_summary.read_text()), args.output)
 
 
 if __name__ == "__main__":

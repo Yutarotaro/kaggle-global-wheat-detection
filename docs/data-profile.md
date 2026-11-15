@@ -159,6 +159,64 @@ Kaggleの非公開採点画像との照合は未実施。
 `arvalis_3` は2021年版の `Arvalis_5` と `Arvalis_6` に対応する。
 保留画像を使う場合は近似ペアと撮影セッションの詳細を先に確認する。
 
+
+## 追加データと背景サンプルの監査
+
+![3つの学習データ候補で、画像面積の0.2%未満の穂が占める割合を比較。](figures/wheat-data-additional-small-heads.png)
+
+| データ | 画像 | 正解枠 | 小さい穂の正解枠 | 注釈なしの画像 |
+| --- | ---: | ---: | ---: | ---: |
+| Kaggle固定学習 | 2,002 | 103,012 | 8,861（8.6%） | 0 |
+| 監査済みGWHD 2021の追加分 | 385 | 21,720 | 5,228（24.1%） | 4（配布元の `no_box`） |
+| 監査済みSD-RWHD | 159 | 18,787 | 11,516（61.3%） | 0 |
+
+SD-RWHDは2023年6月に撮影された南ダコタの圃場データ。論文の全体は203画像、
+配布ZIPの対応する画像と注釈は159組だった。四頂点から外接枠へ変換し、
+画像端をまたぐ2,117枠を切り取り、完全に画像の外の3枠を除外した。
+Kaggleのローカル学習・検証・確認画像と公開サンプル画像、SD-RWHD内を
+64ビット差分ハッシュの距離4以下で比較したところ、除外する画像は0枚だった。
+1画像の穂数は最小39、中央値76、最大312。配布はCC BY 4.0。
+2020年コンペでは外部データの締切前告知が条件だったため、この2026年公開分は研究用に用意した。
+[SD-RWHDの論文](https://pmc.ncbi.nlm.nih.gov/articles/PMC13529697/) ·
+[配布元とライセンス](https://zenodo.org/records/20215489) ·
+[Kaggle規約](https://www.kaggle.com/competitions/global-wheat-detection/rules)
+
+| その他の公開データ | 確認結果 |
+| --- | --- |
+| SPIKE（2018） | 著者のZIPは画像355枚。ファイル上はpositive 315枚、test 30枚、negative 10枚。負例は葉や土の画像で、背景誤検出を測る補助評価に使う。 |
+| WEDD（2019） | 作者がGWHDに統合済みと明記している。独立した追加画像としては扱わない。 |
+| GWFSS（2025） | ラベル付き1,096枚がCC BY 4.0で公開。穂・葉・茎などのセマンティックマスクで、重なった穂の個別枠には追加処理が必要。 |
+| BioS-Wheat（2025） | 論文では枠注釈付き5,696枚。掲載時点の記載はZenodoに公開予定で、対応する配布ZIPは確認できていない。 |
+
+[SPIKE配布元](https://sourceforge.net/projects/spike-dataset/files/) ·
+[SPIKE論文](https://pmc.ncbi.nlm.nih.gov/articles/PMC6236889/) ·
+[WEDD作者の配布ページ](https://github.com/simonMadec/Wheat-Ears-Detection-Dataset) ·
+[GWFSSデータカード](https://huggingface.co/datasets/GlobalWheat/GWFSS_v1.0) ·
+[BioS-Wheat論文](https://www.nature.com/articles/s41598-025-28351-5)
+
+Kaggleの固定学習2,002枚に、seed 42で拡大クロップを1回適用した。
+切り出した1,020枚には穂の注釈がゼロの画像がなかった。
+別途、学習画像の各辺の25–60%の窓を候補にし、正解枠の周囲に各辺の1.5%を
+足した領域と重ならない窓を探索した。413枚から候補を1枚ずつ採取できた。
+領域の条件は元の注釈に基づき、画像そのものはKaggleの入力から学習時に切り出す。
+
+| 固定学習の撮影元 | 背景クロップ候補 |
+| --- | ---: |
+| `arvalis_1` | 244 |
+| `ethz_1` | 26 |
+| `usask_1` | 143 |
+
+```bash
+uv run --no-sync python scripts/prepare_sd_rwhd.py \
+  data/sd-rwhd/1_SD-RWHD.zip --output data/sd-rwhd/prepared
+uv run --no-sync python scripts/prepare_wheat_backgrounds.py \
+  --output data/prepared/background-crops.json
+```
+
+SD-RWHDの配布ZIPのMD5は `e91153c30b4eb641a1b78923908b0b6b`。
+変換済みアーカイブのSHA-256は `44f36d29bf481040dd03d41ac519320a1fb263b5d6608d5ca0d7045cbc666110`。
+背景クロップの座標マニフェストのSHA-256は `9e6b55056f61ecc6ea70f2b7b5ef603b89c177c1ce7564cd96629962abe9a651`。
+
 ## 再集計
 
 ```bash

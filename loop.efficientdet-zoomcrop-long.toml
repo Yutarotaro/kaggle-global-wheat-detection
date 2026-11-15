@@ -1,0 +1,45 @@
+seed = 42
+require_trial_commits = true
+baseline_reference = "1d692cda0f6e4cd2-0001"
+baseline_hypothesis = "Kaggle元データ2,002枚で拡大クロップを混ぜ、D2を12 epochまで学習する。同じ学習の6 epoch時点と以降を比べ、追加データを使った先行研究との違いも別途確認する。"
+runtime_s = 9000
+agent_s = 600
+smoke_s = 180
+evaluate_s = 300
+poll_s = 15
+editable = ["configs/efficientdet-zoomcrop-long.json"]
+
+[selection]
+group_metric = "by_source"
+max_group_regression = 0.01
+
+[agent]
+type = "config-sweep"
+aggregate_only = true
+path = "configs/efficientdet-zoomcrop-long.json"
+
+[[agent.variants]]
+hypothesis = "元データのみで長く学習した場合の拡大クロップの効果を比較する。"
+overrides = {run_label = "d2-12e-768-kaggle-full", zoom_crop_probability = 0}
+
+[executor]
+type = "kaggle"
+owner = "yutarotaro"
+binary = ".venv/bin/kaggle"
+competition = "global-wheat-detection"
+notebook_prefix = "wheat-train"
+notebook_label_file = "configs/efficientdet-zoomcrop-long.json"
+notebook_exclude_dirs = ["docs", "notebooks", "scripts", "tests", ".github"]
+accelerator = "NvidiaTeslaT4"
+internet = true
+
+[task]
+type = "command"
+interpreter = ".venv/bin/python"
+metric = "wheat_image_precision"
+direction = "max"
+train = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-zoomcrop-long.json", "--epoch-previews", "--epoch-scores"]
+smoke = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-zoomcrop-long.json", "--smoke"]
+evaluate = ["python", "src/wheat/evaluate.py"]
+dataset_manifest = "data/prepared/split.json"
+remote_inputs = ["data/prepared/split.json"]
