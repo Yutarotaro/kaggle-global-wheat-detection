@@ -1,0 +1,13 @@
+{
+  "detector": "fasterrcnn-resnet50-v2",
+  "run_label": "frcnn-r50v2-6e-768",
+  "image_size": 768,
+  "epochs": 6,
+  "batch_size": 2,
+  "learning_rate": 0.0001,
+  "horizontal_flip": 0.5,
+  "validation_loss": true,
+  "amp": true,
+  "confidence": 0.3,
+  "nms": 0.5
+}

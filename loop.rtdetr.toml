@@ -1,0 +1,45 @@
+seed = 42
+require_trial_commits = true
+baseline_reference = "d31623fdd5114e49-0001"
+baseline_hypothesis = "COCO事前学習済みRT-DETRv2-R18をKaggle元データ2,002枚でfine-tuneし、クエリ単位の直接集合予測とマルチスケール特徴で、D2と撮影元別の誤検出・枠品質を比較する。"
+runtime_s = 6900
+agent_s = 600
+smoke_s = 180
+evaluate_s = 300
+poll_s = 15
+editable = ["configs/rtdetr-v2-r18.json"]
+
+[selection]
+group_metric = "by_source"
+max_group_regression = 0.01
+
+[agent]
+type = "config-sweep"
+aggregate_only = true
+path = "configs/rtdetr-v2-r18.json"
+
+[[agent.variants]]
+hypothesis = "全体画像と拡大クロップの混在に対するRT-DETRv2の反応を見る。"
+overrides = {run_label = "rtdetr-v2-r18-8e-zoom50", zoom_crop_probability = 0.5}
+
+[executor]
+type = "kaggle"
+owner = "yutarotaro"
+binary = ".venv/bin/kaggle"
+competition = "global-wheat-detection"
+notebook_prefix = "wheat-train"
+notebook_label_file = "configs/rtdetr-v2-r18.json"
+notebook_exclude_dirs = ["docs", "notebooks", "scripts", "tests", ".github"]
+accelerator = "NvidiaTeslaT4"
+internet = true
+
+[task]
+type = "command"
+interpreter = ".venv/bin/python"
+metric = "wheat_image_precision"
+direction = "max"
+train = ["python", "src/wheat/train.py", "--config", "configs/rtdetr-v2-r18.json", "--epoch-previews", "--epoch-scores"]
+smoke = ["python", "src/wheat/train.py", "--config", "configs/rtdetr-v2-r18.json", "--smoke"]
+evaluate = ["python", "src/wheat/evaluate.py"]
+dataset_manifest = "data/prepared/split.json"
+remote_inputs = ["data/prepared/split.json"]

@@ -80,7 +80,7 @@ def validation_loss(model, loader, device, seed):
         if hasattr(model, "rpn"):
             for module in (model, model.rpn, model.roi_heads):
                 module.training = True
-        else:
+        elif hasattr(model, "loss_bench"):
             model.loss_bench.training = True
         with torch.random.fork_rng(devices=cuda_devices):
             torch.random.default_generator.manual_seed(seed)
@@ -162,7 +162,9 @@ def main(resources):
         raise ValueError("Zoom-crop probability must be in [0, 1] and requires Mosaic to be disabled.")
     assert 0 <= config["horizontal_flip"] <= 1
     assert 0 <= config["vertical_flip"] <= 1 and 0 <= config["color_jitter"] <= 1
-    assert 0 < config["confidence"] < 1 and 0 < config["nms"] < 1
+    assert 0 < config["confidence"] < 1
+    if "nms" in config:
+        assert 0 < config["nms"] < 1
     assert 256 <= config["image_size"] <= 1280 and 1 <= config["epochs"] <= 15
     assert 1 <= config["batch_size"] <= 16 and 0 < config["learning_rate"] < 1
     seed = int(os.environ.get("ML_LOOP_SEED", 42))
@@ -287,7 +289,11 @@ def main(resources):
                 raise ValueError("Validation split is empty.")
             valid_loader = DataLoader(Images(data, sorted(valid_loss_ids), boxes),
                                       batch_size=config["batch_size"], collate_fn=collate)
-        opt = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"])
+        params = (model.parameter_groups(config["backbone_learning_rate"])
+                  if "backbone_learning_rate" in config else model.parameters())
+        opt = torch.optim.AdamW(params, lr=config["learning_rate"], weight_decay=config.get("weight_decay", .01))
+        amp = device.type == "cuda" and config.get("amp", False)
+        scaler = torch.amp.GradScaler("cuda", enabled=amp)
         preview_ids = select_preview_ids(inference_ids) if args.epoch_previews else []
         if preview_ids:
             preview_dir = out / "epoch-previews"
@@ -298,10 +304,12 @@ def main(resources):
             model.train()
             loss_total = 0
             for images, labels in loader:
-                loss = detection_loss(model, images, labels, device)
                 opt.zero_grad(set_to_none=True)
-                loss.backward()
-                opt.step()
+                with torch.autocast(device.type, enabled=amp):
+                    loss = detection_loss(model, images, labels, device)
+                scaler.scale(loss).backward()
+                scaler.step(opt)
+                scaler.update()
                 loss_total += loss.item() * len(images)
             progress = f"Epoch {epoch + 1}: loss {loss_total / len(train_ids):.5f}"
             if valid_loader is not None:
@@ -340,6 +348,8 @@ def main(resources):
     }
     if config.get("detector") == "efficientdet-d2":
         environment.update(effdet=version("effdet"), timm=version("timm"))
+    elif config.get("detector") == "rtdetr-v2-r18":
+        environment.update(transformers=version("transformers"), scipy=version("scipy"))
     (out / "predictions.json").write_text(json.dumps({"images": predictions, "environment": environment}, allow_nan=False))
 
 
