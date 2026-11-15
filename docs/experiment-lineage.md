@@ -166,6 +166,7 @@ flowchart TB
     F["D2 · 追加385枚<br/>撮影元を増やす<br/>固定検証 0.547748<br/>commit 77083de"]
     C["D2 · 拡大クロップ50%<br/>画角を変えて学習<br/>固定検証 0.584042<br/>commit aa2cb62"]
     N["D2 · 背景クロップ5%<br/>誤検出の低下を比較<br/>固定検証 0.597398<br/>commit 2edc4ff"]
+    U["負例ありD2に入れ替え<br/>同じ反転TTAで比較<br/>固定検証 0.623874<br/>独立確認 0.594998<br/>学習 commit 2edc4ff"]
     S["3モデルの反転TTA<br/>固定検証 0.602975<br/>独立確認 0.573011<br/>Public 0.6867<br/>Private 0.5787<br/>提出 58377134 · v1<br/>commit 2edc4ff"]
     Z["拡大クロップD2に入れ替え<br/>撮影元をまたぐ改善を確認<br/>固定検証 0.620481<br/>独立確認 0.587522<br/>学習 commit aa2cb62"]
     T["RT-DETRv2-R18<br/>直接枠を予測する方式<br/>固定検証 0.215746<br/>commit 34c041d"]
@@ -180,6 +181,8 @@ flowchart TB
     D --> T
     D --> L
     N --> L
+    N --> U
+    M --> U
     M --> R
 ```
 

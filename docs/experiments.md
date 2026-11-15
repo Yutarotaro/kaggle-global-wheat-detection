@@ -454,6 +454,12 @@ SPIKEの負例10枚では、confidence 0.30で比較元の全体画像学習は�
 
 SPIKE負例10枚の平均誤検出は、confidence 0.30で1.6から0.5に低下した。
 confidence 0.40では0.1から0.3に増えた。少数の背景画像での傾向として記録する。
+負例ありのD2を既存D2と入れ替えた反転TTAは、固定検証 **0.623874**、
+独立確認 **0.594998**（`arvalis_3` 0.569085、`inrae_1` 0.677301）。
+背景追加前の独立確認0.587522から改善した。GWHD 2021の追加学習データを
+使った条件で、Kaggle元データのみの12 epoch学習へ手法を移した。
+[固定検証Run](http://localhost:5050/#/experiments/1/runs/e36a38d01c684f28b97e08f93815666c) ·
+[独立確認Run](http://localhost:5050/#/experiments/1/runs/0cb747db2c594bef93f4ac72894bb73c)
 
 ### RT-DETRv2-R18の初回学習
 
