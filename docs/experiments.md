@@ -476,6 +476,24 @@ Kaggleの元データだけを使い8 epoch実行した（`66b8fdb7d8944873-0001
 出力の閾値だけでは改善しなかった。
 [学習Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-train-rtdetr-v2-r18-8e-640-95dd0119db16)
 
+### Faster R-CNN ResNet-50 FPN v2の初回学習
+
+元データのみ、768px、6 epoch、batch 2、AMPで6,006更新を実行した
+（`3f96d2f258b746a8-0001`、commit `34c041d`）。
+最良は1 epochの **0.509187**（`arvalis_2` 0.243283、`rres_1` 0.634752）。
+6 epochは0.393081。MobileNetV3の基準0.512961を単体では超えなかった。
+最良の重みを固定し、現行アンサンブルと同じ反転TTAで補完効果を比較する。
+[学習Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-train-frcnn-r50v2-6e-768-7a33d05b8ce3) ·
+[学習Run](http://localhost:5050/#/experiments/1/runs/8ea32efd4dda4dc383df4a01de343034)
+
+### Kaggle元データでの12 epoch学習
+
+`06873b044c414c79-0001` を投入した（Notebook v1、commit `03707df`）。
+比較用の固定分割と乱数シード42を使い、12 epoch、6,012更新、拡大クロップ50%、
+各epochに背景100枚の条件で学習する。学習済み重みは同じ反転TTAで固定検証し、
+現行の提出 `58377134` を上回った候補を凍結して独立確認に進む。
+[学習Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-train-d2-12e-768-zoom50-neg05-945c1bce2c8d)
+
 別の候補として、1,024pxの解像度で学習するEfficientDet-D4を用意した。
 Kaggle元データ、拡大クロップ50%、背景5%を使い、より深いBiFPNと
 入力解像度を合わせた学習の効果を調べる。ローカルの学習・推論smokeを確認済み。

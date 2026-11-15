@@ -170,8 +170,8 @@ flowchart TB
     S["3モデルの反転TTA<br/>固定検証 0.602975<br/>独立確認 0.573011<br/>Public 0.6867<br/>Private 0.5787<br/>提出 58377134 · v1<br/>commit 2edc4ff"]
     Z["拡大クロップD2に入れ替え<br/>撮影元をまたぐ改善を確認<br/>固定検証 0.620481<br/>独立確認 0.587522<br/>学習 commit aa2cb62"]
     T["RT-DETRv2-R18<br/>直接枠を予測する方式<br/>固定検証 0.215746<br/>commit 34c041d"]
-    R["Faster R-CNN R50 v2<br/>FPNと特徴抽出器を比較<br/>設定 commit 3d95a8b"]
-    L["D2 · 12 epoch<br/>元データでクロップと負例<br/>設定 commit 3cbb409"]
+    R["Faster R-CNN R50 v2<br/>FPNと特徴抽出器を比較<br/>固定検証 0.509187<br/>commit 34c041d"]
+    L["D2 · 12 epoch<br/>元データでクロップと負例<br/>学習投入済み<br/>commit 03707df"]
 
     D --> F --> C --> N
     C --> Z
