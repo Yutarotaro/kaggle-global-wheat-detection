@@ -244,6 +244,45 @@ Kaggleにマウントした保管ファイルを同じSHA-256で確認する。
 [追加データ](https://www.kaggle.com/datasets/yutarotaro/wheat-gwhd2021-field385) ·
 [マウントの確認Notebook](https://www.kaggle.com/code/yutarotaro/wheat-field385-mount-check)
 
+#### 385枚追加の結果
+
+追加候補をKaggleで照合し、385枚・21,720枠を読み込めることを確認した。
+条件はD2、768px、seed 42、各epoch 2,002画像、6 epoch、最良epoch選択。
+
+| 固定検証636枚 | 基準 `1d692cda0f6e4cd2-0001` | 追加 `1d692cda0f6e4cd2-0002` |
+| --- | ---: | ---: |
+| スコア | 0.539742 | 0.547748 |
+| 最良epoch | 3 | 6 |
+| `rres_1` | 0.656441 | 0.668488 |
+| `arvalis_2` | 0.292616 | 0.292062 |
+| 小さい穂の再現率（IoU 0.50） | 23.20% | 30.51% |
+| 誤検出（重複を除く、IoU 0.50） | 5,046 | 4,376 |
+
+追加D2と既存Faster R-CNNを均等WBF（IoU 0.55、confidence 0.40）で統合すると
+0.586916。D2を2倍にしたWBF（IoU 0.45、confidence 0.40）は0.597387だったが、
+`arvalis_2` は0.366327で、既存最良アンサンブルの0.378352からの低下が0.01を超えた。
+均等WBFの `arvalis_2` は0.375622。
+[均等WBF](http://localhost:5050/#/experiments/1/runs/25e55cf5f0214550b5c0866b220e7f9d) ·
+[D2を2倍にしたWBF](http://localhost:5050/#/experiments/1/runs/360a0d4b1c8f4e1ebb25227ef40490a0)
+
+#### 既存重みのWBFを調整
+
+既存D2とFaster R-CNNの保存済み予測を使い、IoU 0.45 / 0.55 / 0.65、
+Faster R-CNN対D2の重み1:1 / 1:2 / 2:1、および出力confidenceを比較した。
+現在の採用基準を満たすうち最高の条件は **IoU 0.45、重み1:2、confidence 0.40**。
+固定検証は0.580485から **0.587241**、候補確定後に別途評価した最終確認735枚では
+0.555930から **0.557030**。最終確認の `arvalis_3` と `inrae_1` は両方改善した。
+固定した推論Notebook v1（commit `64ba330`）を提出した。提出IDは `58370638`。
+Kaggleの確定値は **Public 0.6668 / Private 0.5651**。
+提出 `58342094` からPublicは+0.0156、Privateは+0.0185。
+[比較Run](http://localhost:5050/#/experiments/1/runs/3ddf9f9ca828466dba74651f97c1b183) ·
+[提出Run](http://localhost:5050/#/experiments/1/runs/de5bd96bb3964629938b13ec172dd35a) ·
+[提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-d2-mbv3-wbf045-d2x2)
+
+既存2モデルをそれぞれ左右反転TTAで統合する候補は固定検証で0.598597
+（TTA内IoU 0.55、モデル間IoU 0.45、重み1:2、出力confidence 0.34）。
+Privateの更新を確認した時点で探索を終了したため、この候補の最終確認とKaggle採点は未実施。
+
 実験を始めたら、以下を記録する。
 
 | 項目 | 内容 |

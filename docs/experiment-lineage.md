@@ -22,6 +22,8 @@ flowchart TB
     COLOR["色ジッター 0.15<br/>撮影元ごとの見え方に対応<br/>0.509165<br/>base 14f596b †"]
     D2["EfficientDet-D2<br/>768px · 6 epoch<br/>高解像度で小さい穂を拾う<br/>0.526891<br/>commit 960cc1b"]
     MOS["D2 ＋ Mosaic 0.50<br/>背景と穂密度を組み替える<br/>0.512726<br/>commit eff9cf1 ‡"]
+    EPO["D2 · 各epochを採点<br/>最良時点を選ぶ基準<br/>0.539742 · epoch 3<br/>commit 83c9c31"]
+    F385["D2 ＋ 新規385枚<br/>更新回数をそろえて比較<br/>0.547748 · epoch 6<br/>commit 77083de ‡"]
     MON1["D2 ＋ Mons 60枚 · 初回<br/>穂の少ない条件を補う<br/>未評価 · 図の同梱で停止<br/>commit 53c0cc2"]
     MON2["D2 ＋ Mons 60枚 · 再試行<br/>文書の図を同梱から除外<br/>未評価 · キュー中に期限切れ<br/>commit f51aeb6"]
     MON3["D2 ＋ Mons 60枚<br/>待ち時間込みの予算を6時間へ<br/>未評価 · ZIPを検出できず停止<br/>commit 1e5d4c2"]
@@ -35,6 +37,8 @@ flowchart TB
     B12 --> COLOR
     B12 -. 比較 .-> D2
     D2 --> MOS
+    D2 -. 比較 .-> EPO
+    EPO --> F385
     D2 -. 比較 .-> MON1
     MON1 -. 再試行 .-> MON2
     MON2 -. 再試行 .-> MON3
@@ -48,8 +52,8 @@ flowchart TB
 
 † 初期の一部試行はベースコミットに凍結済みの作業差分を加えて実行した。図の
 `base` はGitの基点で、各試行のソースは末尾のハッシュで識別する。
-‡ `eff9cf1` は学習前に固定した試行コミットで、ローカルの
-`refs/ml-loop/trials/d31623fdd5114e49-0002` にある。
+‡ 学習前に固定した試行コミット。ローカルの `refs/ml-loop/trials/` 以下で、
+`eff9cf1` は `d31623fdd5114e49-0002`、`77083de` は `1d692cda0f6e4cd2-0002` に対応する。
 
 ## アンサンブルへの合流
 
@@ -62,10 +66,13 @@ flowchart TB
     C["Faster R-CNN ＋ 色ジッター<br/>撮影元への頑健性 · base 14f596b †"]
     B12["Faster R-CNN · 12 epoch<br/>長めの学習 · commit 14f596b"]
     D2["EfficientDet-D2<br/>高解像度 · commit 960cc1b"]
+    F385["D2 ＋ 新規385枚<br/>小さい穂を補う<br/>commit 77083de ‡"]
     Y["YOLOX-S<br/>見逃しの補完候補 · commit 3cbfdcb"]
 
     W1["横反転＋色ジッターのWBF<br/>重みを変えて誤検出を比較<br/>conf 0.50<br/>均等 0.532910<br/>2対1 0.532010<br/>比較元は各単体<br/>commit 29b9e6d"]
     W2["D2＋Faster R-CNNのWBF<br/>異なる検出器で枠を補正<br/>conf 0.50 · 0.569306<br/>conf 0.40 · 0.580485<br/>commit 354401d"]
+    W4["既存D2を2倍にするWBF<br/>IoU 0.45 · conf 0.40<br/>0.587241 · 比較元 0.580485<br/>commit 83c9c31"]
+    WF["追加D2＋Faster R-CNN<br/>均等WBF · 0.586916<br/>比較元は既存WBF 0.580485<br/>commit 64ba330"]
     W3["3モデルのWBF<br/>既存WBFにYOLOX-Sを追加<br/>conf 0.40 · 0.557939<br/>比較元は既存WBF 0.580485<br/>commit dcb26bd"]
     WY["D2＋YOLOX-SのWBF<br/>別の検出器で見逃しを補う<br/>conf 0.40 · 0.477607<br/>比較元はD2単体と既存WBF<br/>commit 22ab781"]
 
@@ -73,6 +80,10 @@ flowchart TB
     B12 --> W1
     B12 --> W2
     D2 --> W2
+    B12 --> W4
+    D2 --> W4
+    B12 --> WF
+    F385 --> WF
     B12 --> W3
     D2 --> W3
     Y --> W3
@@ -80,7 +91,7 @@ flowchart TB
     Y --> WY
 
     classDef ensemble fill:#eee9fc,color:#392863,stroke:#8d76b3
-    class W1,W2,WY,W3 ensemble
+    class W1,W2,WY,W3,W4,WF ensemble
 ```
 
 YOLOX-S単体はconfidence 0.30で小さい穂の再現率19.44%（IoU 0.50）だった。
@@ -98,20 +109,24 @@ YOLOX-S単体はconfidence 0.30で小さい穂の再現率19.44%（IoU 0.50）�
 flowchart TB
     B3["Faster R-CNN · 3 epoch<br/>固定検証 0.445099<br/>base dbb8fb9 †"]
     W2["D2＋Faster R-CNNのWBF<br/>固定検証 0.580485<br/>commit 354401d"]
+    W4["既存D2を2倍にするWBF<br/>固定検証 0.587241<br/>最終確認 0.557030<br/>commit 83c9c31"]
     Y["YOLOX-S単体<br/>固定検証 0.345790<br/>commit 3cbfdcb"]
     S1["Kaggle 58331537 · v1<br/>初期単体モデルの提出<br/>Public 0.5358<br/>Private 0.4449<br/>Notebook commit 14f596b"]
     S2["Kaggle 58342094 · v1<br/>固定検証の最良候補を提出<br/>Public 0.6512<br/>Private 0.5466<br/>比較元 58331537<br/>commit 98308fd"]
     SY["Kaggle 58362730 · v1<br/>YOLOX-S単体のKaggle基準<br/>Public 0.5645<br/>Private 0.5005<br/>比較元 58331537<br/>commit dcb26bd"]
+    S4["Kaggle 58370638 · v1<br/>WBFの調整を確認<br/>Public 0.6668<br/>Private 0.5651<br/>比較元 58342094<br/>commit 64ba330"]
 
     B3 --> S1
     W2 --> S2
+    W4 --> S4
     Y --> SY
 
     classDef submission fill:#e6f3eb,color:#204d34,stroke:#73a287
-    class S1,S2,SY submission
+    class S1,S2,SY,S4 submission
 ```
 
 - [初期単体の提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-baseline-late-20261114) · [D2＋Faster R-CNNの提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-d2-mbv3-wbf040) · [YOLOX-S単体の提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-yolox-s-6e-768-conf030)
+- [Private 0.5651の提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-d2-mbv3-wbf045-d2x2) · [MLflow提出Run](http://localhost:5050/#/experiments/1/runs/de5bd96bb3964629938b13ec172dd35a)
 
 <details>
 <summary>初期試行のIDと凍結ソースハッシュ</summary>
