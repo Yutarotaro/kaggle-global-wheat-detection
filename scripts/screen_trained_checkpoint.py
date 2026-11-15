@@ -41,15 +41,17 @@ def main():
 
     paths = [args.output / f"validation-{variant}.json" for variant in (
         "replace-mbv3" if model["config"]["detector"].startswith("fasterrcnn") else "replace-d2",
-        "add-detector")]
+        "add-detector", "add-to-current")]
     compare("validation")
+    compare("validation", "--current-ensemble")
     results = [(path, read(path)) for path in paths]
     eligible = [(path, report) for path, report in results if passes(report, baseline)]
     outcome = {"trial_id": model["trial_id"], "reference_submission": 58377134,
                "validation_reports": [str(path) for path in paths], "ready": False}
     if eligible:
         selected, report = max(eligible, key=lambda row: row[1]["result"]["score"])
-        compare("holdout", "--candidate", str(selected))
+        extra = ["--current-ensemble"] if report["spec"]["variant"] == "add-to-current" else []
+        compare("holdout", "--candidate", str(selected), *extra)
         holdout_path = args.output / f"holdout-{report['spec']['variant']}.json"
         outcome.update(candidate=str(selected), holdout=str(holdout_path),
                        ready=passes(read(holdout_path), baseline))

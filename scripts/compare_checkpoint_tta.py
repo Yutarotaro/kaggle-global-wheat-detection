@@ -20,6 +20,7 @@ from submission import predict_views
 RAW = PROJECT / "data/raw"
 SPLIT = PROJECT / "data/prepared/split.json"
 BASELINE = PROJECT / "configs/submission-d2-mbv3-hflip-tta.json"
+CURRENT = PROJECT / "configs/submission-mbv3-d2x2-hflip.json"
 
 
 def read(path):
@@ -124,6 +125,8 @@ def main():
     parser.add_argument("--device", default="mps")
     parser.add_argument("--candidate", type=Path, help="Eligible frozen validation recipe for holdout.")
     parser.add_argument("--tile-predictions", type=Path, help="Candidate's frozen tile predictions.")
+    parser.add_argument("--current-ensemble", action="store_true",
+                        help="Test one small-weight addition to all three incumbent models.")
     args = parser.parse_args()
     if (args.partition == "holdout") != (args.candidate is not None):
         parser.error("Holdout requires exactly one frozen validation candidate.")
@@ -139,32 +142,41 @@ def main():
     torch.set_num_threads(3)
     args.output.mkdir(parents=True, exist_ok=True)
     model = trial_condition(args.model)
-    incumbent = read(BASELINE)
+    incumbent = read(CURRENT if args.current_ensemble else BASELINE)
     incumbent_rows = ([view[1] for view in read(PROJECT / "outputs/field385/tta-predictions.json")]
                       if args.partition == "validation" else
                       [read(PROJECT / f"outputs/field385/holdout-tta-{i}.json") for i in range(2)])
+    if args.current_ensemble:
+        incumbent_rows.append(read(PROJECT / "outputs/checkpoint-tta/competition-only"
+                                   / f"{args.partition}-tta.json")["images"])
     if any(rows.keys() != set(keys) for rows in incumbent_rows):
         raise ValueError("Incumbent TTA cache does not match the fixed partition.")
     candidate = predict(model, args.partition, keys, device, args.output / f"{args.partition}-tta.json")
     reference = score(incumbent_rows, labels, keys, incumbent)
     published = incumbent[f"{args.partition}_score"]
     # The earlier screen used weights [1, 2]; the submitted floats were [1/3, 2/3].
-    tolerance = 0.00002 if args.partition == "validation" else 1e-9
+    tolerance = 0.00002 if args.partition == "validation" and not args.current_ensemble else 1e-9
     if not math.isclose(reference["score"], published, abs_tol=tolerance, rel_tol=0):
         raise ValueError(f"Incumbent score mismatch: {reference}")
     rows = {**dict(zip((m["trial_id"] for m in incumbent["models"]), incumbent_rows, strict=True)),
             model["trial_id"]: candidate}
-    replace_mobile = model["config"]["detector"].startswith("fasterrcnn")
-    updated = [model, incumbent["models"][1]] if replace_mobile else [incumbent["models"][0], model]
-    replacement = "replace-mbv3" if replace_mobile else "replace-d2"
-    variants = [(updated, incumbent["weights"], replacement),
-                (incumbent["models"] + [model], [0.25, 0.5, 0.25], "add-detector")]
+    if args.current_ensemble:
+        variants = [(incumbent["models"] + [model],
+                     [*(weight * 0.85 for weight in incumbent["weights"]), 0.15], "add-to-current")]
+    else:
+        replace_mobile = model["config"]["detector"].startswith("fasterrcnn")
+        updated = [model, incumbent["models"][1]] if replace_mobile else [incumbent["models"][0], model]
+        replacement = "replace-mbv3" if replace_mobile else "replace-d2"
+        variants = [(updated, incumbent["weights"], replacement),
+                    (incumbent["models"] + [model], [0.25, 0.5, 0.25], "add-detector")]
     recipes = [dict(incumbent, models=models, weights=weights, variant=variant)
                for models, weights, variant in variants]
     if args.candidate:
         selected = read(args.candidate)
         if not selected["eligible"] or selected["partition"] != "validation":
             raise ValueError("Holdout candidate must pass the fixed validation comparison.")
+        if (selected["spec"]["variant"] == "add-to-current") != args.current_ensemble:
+            raise ValueError("The holdout reference must match the frozen validation comparison.")
         recipes = [selected["spec"]]
     tile_rows = None
     if args.tile_predictions:
@@ -188,6 +200,7 @@ def main():
             result["by_source"][key] >= value - 0.01 for key, value in reference["by_source"].items())
         report = {"partition": args.partition, "eligible": pass_guard, "git_commit": commit,
                   "candidate_trial": model["trial_id"],
+                  "reference_submission": 58377134 if args.current_ensemble else 58374318,
                   "spec": recipe, "baseline": reference, "result": result, "split_sha256": sha(SPLIT)}
         write(args.output / f"{args.partition}-{recipe['variant']}.json", report)
         print(recipe["variant"], result, f"eligible={pass_guard}", flush=True)
