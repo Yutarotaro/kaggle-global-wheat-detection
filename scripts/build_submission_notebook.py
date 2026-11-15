@@ -12,6 +12,9 @@ MODULES = ("data", "metric", "fusion", "model", "submission")
 def build(spec, destination):
     slug = spec["notebook"].split("/")[-1]
     notebook_name = spec["source_notebook"]
+    uses_yolox = any(model["config"].get("detector") == "yolox-s" for model in spec["models"])
+    if uses_yolox and "yolox_source" not in spec:
+        raise ValueError("Offline YOLOX inference requires a pinned source archive.")
     cells = []
 
     def add(kind, source):
@@ -24,24 +27,38 @@ def build(spec, destination):
     add("markdown", f"# {slug}\n\n{spec['description']}")
     add("code", '''import hashlib
 import json
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 spec = json.loads(Path("submission-spec.json").read_text())
-wheel_paths = []
-for name, expected in spec["wheels"].items():
-    (wheel,) = Path("/kaggle/input").rglob(name)
-    with wheel.open("rb") as handle:
+
+
+def checked_input(name, expected):
+    (path,) = Path("/kaggle/input").rglob(name)
+    with path.open("rb") as handle:
         if hashlib.file_digest(handle, "sha256").hexdigest() != expected:
-            raise ValueError(f"Wheel checksum mismatch: {name}")
-    wheel_paths.append(str(wheel))
-subprocess.run([sys.executable, "-m", "pip", "install", "--no-index", "--no-deps",
-                "--force-reinstall", *wheel_paths], check=True)
+            raise ValueError(f"Mounted file checksum mismatch: {name}")
+    return path
+
+
+wheel_paths = [str(checked_input(name, expected)) for name, expected in spec["wheels"].items()]
+if wheel_paths:
+    subprocess.run([sys.executable, "-m", "pip", "install", "--no-index", "--no-deps",
+                    "--force-reinstall", *wheel_paths], check=True)
+if "yolox_source" in spec:
+    source = spec["yolox_source"]
+    cache = Path(".cache/yolox")
+    cache.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(checked_input(source["file"], source["sha256"]), cache / "source.zip")
+    os.environ["ML_LOOP_PROJECT"] = str(Path.cwd())
 '''.replace('spec = json.loads(Path("submission-spec.json").read_text())',
             f"spec = json.loads({json.dumps(spec, ensure_ascii=False)!r})\n"
             'Path("submission-spec.json").write_text(json.dumps(spec))'))
-    for module in MODULES:
+    modules = (*MODULES, "yolox_model") if uses_yolox else MODULES
+    for module in modules:
         source = (PROJECT / "src/wheat" / f"{module}.py").read_text()
         add("markdown", f"## {module}.py")
         add("code", f"%%writefile {module}.py\n{source}")

@@ -10,7 +10,6 @@ from PIL import Image
 from torchvision.transforms.functional import pil_to_tensor
 
 from data import sha
-from fusion import fuse
 from metric import validate_predictions
 from model import create_model
 
@@ -38,6 +37,9 @@ def prediction_string(predictions, width, height):
 def predict(data_root, checkpoints, spec, output, device):
     if len(checkpoints) != len(spec["models"]):
         raise ValueError("Expected one checkpoint per model.")
+    if len(checkpoints) > 1:
+        from fusion import fuse
+
     models = []
     for path, conditions in zip(checkpoints, spec["models"], strict=True):
         if sha(path) != conditions["sha256"]:
