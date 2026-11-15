@@ -188,6 +188,35 @@ commit `dcb26bd`）。採点は **Public 0.5645 / Private 0.5005**。
 
 ## 候補の採否と次の仮説
 
+### 上位解法を踏まえた比較順
+
+2020年1位のDungNBは外部データでの学習、複数スケール、EfficientDetとFaster R-CNNのWBF、
+疑似ラベルを併用した。2位OverFeatはCOCO事前学習済みEfficientDet-D6を主軸とし、枠のノイズ、
+画像端で切れた穂、色・幾何変換、TTAを調べた。9位の実装は二つの検出器のconfidenceの分布差を
+補正してからWBFを行った。主催者によるEfficientDet-D4の比較では、単画像のaugmentationで
+撮影元均等の指標が0.4528から0.4981、MixUp単独では0.3675だった。
+[1位の実装](https://github.com/dungnb1333/Global-Wheat-Dection-1st-Place) ·
+[2位の解説](https://www.kaggle.com/competitions/global-wheat-detection/writeups/overfeat-2nd-place-solution-with-code-mit-complian) ·
+[9位の実装](https://github.com/amirassov/kaggle-global-wheat-detection) ·
+[主催者の比較実験](https://arxiv.org/pdf/2105.06182#page=11)
+
+1. D2の同じ初期重み、768px、更新回数、seedで、元データ2,002枚と
+   [追加候補385枚を加えたデータ](data-profile.md#gwhd-2021の追加学習候補を監査)を比較する。
+   前回はKaggle上で追加ZIPを見つけられなかったため、アップロード後のファイル名と枠の読み込みを
+   本学習前に確認する。各epochで同じ固定検証を採点し、
+   最高スコア時の重みと最終重みを保存する。
+2. データの比較を終えてから、上下反転・回転・枠と連動するcrop・明暗・ぼけを含む
+   単画像augmentationを一条件として追加する。D2の現行Mosaic 0.50は基準0.526891から
+   0.512726に低下したため、複数画像を混ぜる方法は個別の実験として扱う。
+3. 採用した学習条件で、モデルサイズと解像度を順に比較する。既存重みを使う左右・上下反転TTAと
+   モデル別confidenceの調整は、学習条件の比較とは別に評価する。
+   小さい穂の見逃しが残る場合は重なり付きタイル推論を調べ、境界の重複と誤検出も数える。
+
+比較では全体、撮影元別、小さい穂の再現率、誤検出数を追う。最終確認とKaggleへの提出には、
+固定検証で改善し、撮影元別の条件も満たした候補を使う。
+
+### 採用基準
+
 同じセッションで採用済みの最良Runを基準に、固定検証の全体スコアが上がり、
 どの撮影元でも悪化が0.01以内なら採用する。撮影元別の悪化が0.01を超えた候補は保留とする。
 小さい穂の再現率と見逃し・誤検出・重複の件数は次の仮説の判断材料に使う。
