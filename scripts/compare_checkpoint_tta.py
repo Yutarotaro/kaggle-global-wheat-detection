@@ -119,7 +119,10 @@ def main():
         raise ValueError(f"Incumbent score mismatch: {reference}")
     rows = {**dict(zip((m["trial_id"] for m in incumbent["models"]), incumbent_rows, strict=True)),
             model["trial_id"]: candidate}
-    variants = [(incumbent["models"][:1] + [model], incumbent["weights"], "replace-d2"),
+    replace_mobile = model["config"]["detector"].startswith("fasterrcnn")
+    updated = [model, incumbent["models"][1]] if replace_mobile else [incumbent["models"][0], model]
+    replacement = "replace-mbv3" if replace_mobile else "replace-d2"
+    variants = [(updated, incumbent["weights"], replacement),
                 (incumbent["models"] + [model], [0.25, 0.5, 0.25], "add-detector")]
     recipes = [dict(incumbent, models=models, weights=weights, variant=variant)
                for models, weights, variant in variants]

@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "src/wheat"))
 from data import load_dataset, sha, split_dataset
 from evaluate import evaluate
 from metric import image_score, match
-from preprocess import mosaic
+from preprocess import mosaic, zoom_crop
 from render_previews import render_previews
 
 
@@ -27,6 +27,25 @@ def test_mosaic_clips_and_translates_boxes(monkeypatch):
     assert [image[0, y, x].item() for y, x in ((0, 0), (0, 7), (7, 0), (7, 7))] == [0, 1, 2, 3]
     assert target["boxes"].tolist() == [[0, 0, 2, 2], [5, 0, 8, 2], [0, 5, 2, 8], [5, 5, 8, 8]]
     assert target["labels"].tolist() == [1, 2, 3, 4]
+
+
+def test_zoom_crop_preserves_visible_boxes_and_labels():
+    class FixedCrop:
+        positions = iter((20, 10))
+
+        def uniform(self, _low, _high):
+            return 0.60
+
+        def randrange(self, _stop):
+            return next(self.positions)
+
+    image = torch.arange(3 * 100 * 100).reshape(3, 100, 100)
+    boxes = torch.tensor([[23., 17., 44., 39.], [10., 25., 30., 40.], [70., 40., 99., 60.]])
+    crop, target = zoom_crop(image, {"boxes": boxes, "labels": torch.tensor([1, 2, 3])}, FixedCrop())
+    assert torch.equal(crop, image[:, 10:70, 20:80])
+    assert target["boxes"].tolist() == [[3, 7, 24, 29], [0, 15, 10, 30]]
+    assert target["labels"].tolist() == [1, 2]
+    assert boxes[1, 0].item() == 10
 
 
 def test_metric_penalizes_duplicates_and_respects_confidence():
