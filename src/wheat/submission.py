@@ -53,17 +53,38 @@ def predict_views(model, tensor, flips, iou):
     return fuse(predictions, width, height, [1] * len(predictions), iou) if flips else predictions[0]
 
 
+def load_detector(conditions, state, device, image_size=None):
+    config = conditions["config"]
+    if image_size is None:
+        image_size = config["image_size"]
+    model = create_model(dict(config, image_size=image_size), pretrained=False).to(device)
+    if image_size != config["image_size"]:
+        if config.get("detector") != "efficientdet-d2":
+            raise ValueError("This experiment supports size transfer for EfficientDet-D2.")
+        # Anchors are deterministic geometry for the current input size.
+        state = dict(state)
+        target = model.state_dict()
+        for key in ("loss_bench.anchors.boxes", "predict_bench.anchors.boxes"):
+            if state[key].ndim != 2 or state[key].shape[1] != 4 or target[key].shape[1] != 4:
+                raise ValueError("Unexpected EfficientDet anchor buffer.")
+            state[key] = target[key]
+    model.load_state_dict(state, strict=True)
+    return model.eval()
+
+
 @torch.inference_mode()
 def predict(data_root, checkpoints, spec, output, device):
     if len(checkpoints) != len(spec["models"]):
         raise ValueError("Expected one checkpoint per model.")
     models = []
+    scales = []
     for path, conditions in zip(checkpoints, spec["models"], strict=True):
         if sha(path) != conditions["sha256"]:
             raise ValueError(f"Checkpoint mismatch for {conditions['trial_id']}.")
-        model = create_model(conditions["config"], pretrained=False).to(device)
-        model.load_state_dict(torch.load(path, map_location=device, weights_only=True))
-        models.append(model.eval())
+        state = torch.load(path, map_location=device, weights_only=True)
+        models.append(load_detector(conditions, state, device))
+        scale = conditions.get("scale_view")
+        scales.append((load_detector(conditions, state, device, scale["image_size"]), scale) if scale else None)
     paths = {path.stem: path for path in (data_root / "test").glob("*.jpg")}
     views = [conditions.get("tta_flips", spec.get("tta_flips", [])) for conditions in spec["models"]]
     for flips in views:
@@ -83,6 +104,11 @@ def predict(data_root, checkpoints, spec, output, device):
                 tensor = pil_to_tensor(image.convert("RGB")).float().div_(255).to(device)
             rows = [predict_views(model, tensor, flips, spec.get("tta_iou", 0.55))
                     for model, flips in zip(models, views, strict=True)]
+            for index, extra in enumerate(scales):
+                if extra is not None:
+                    detector, scale = extra
+                    larger = predict_views(detector, tensor, [], scale["iou"])
+                    rows[index] = fuse([rows[index], larger], width, height, scale["weights"], scale["iou"])
             tiles = spec.get("tiles")
             tile_rows = tile_predictions(models[tiles["model_index"]], tensor, tiles) if tiles else []
             quality = spec.get("quality")
