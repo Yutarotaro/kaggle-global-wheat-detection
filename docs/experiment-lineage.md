@@ -98,7 +98,7 @@ flowchart TB
     Y["YOLOX-S単体<br/>固定検証 0.345790 · commit 3cbfdcb"]
     S1["Kaggle 58331537 · v1<br/>初期単体モデルの提出を確認<br/>Public 0.5358 / Private 0.4449<br/>Notebook commit 14f596b"]
     S2["Kaggle 58342094 · v1<br/>固定検証の最良候補を提出<br/>Public 0.6512 / Private 0.5466<br/>比較元 58331537 · commit 98308fd"]
-    SY["Kaggle 58362730 · YOLOX-S単体 · v1<br/>単体のKaggle基準を測定<br/>採点待ち · commit dcb26bd<br/>比較元 58331537"]
+    SY["Kaggle 58362730 · YOLOX-S単体 · v1<br/>単体のKaggle基準を測定<br/>Public 0.5645 / Private 0.5005<br/>比較元 58331537 · commit dcb26bd"]
 
     B3 --> S1
     W2 --> S2
