@@ -279,9 +279,81 @@ Kaggleの確定値は **Public 0.6668 / Private 0.5651**。
 [提出Run](http://localhost:5050/#/experiments/1/runs/de5bd96bb3964629938b13ec172dd35a) ·
 [提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-d2-mbv3-wbf045-d2x2)
 
-既存2モデルをそれぞれ左右反転TTAで統合する候補は固定検証で0.598597
-（TTA内IoU 0.55、モデル間IoU 0.45、重み1:2、出力confidence 0.34）。
-Privateの更新を確認した時点で探索を終了したため、この候補の最終確認とKaggle採点は未実施。
+## 2026-11-15 推論構成の比較
+
+比較元は提出 `58370638`（D2＋MobileNetV3 Faster R-CNN、重み1:2、WBF IoU 0.45）。
+固定検証636枚で、IoU 0.50で見逃した4,744穂のうち2,082穂には統合前の
+候補にIoU > 0.50の枠があった。面積が画像の0.2%未満の穂は893穂を見逃し、
+そのうち682穂では統合前でも最大IoUが0.30未満だった。候補の選択と、解像度を
+上げて候補を増やす方法を比較した。学習済み検出器は毎回同じ版を使用した。
+
+| 推論方法 | 固定検証 | arvalis_2 | rres_1 | 独立確認 |
+| --- | ---: | ---: | ---: | ---: |
+| 提出 `58370638` | 0.587241 | 0.368985 | 0.690307 | 0.557030 |
+| 両モデルの水平反転TTA | **0.598597** | 0.378439 | 0.702560 | **0.564296** |
+| D2の4タイル候補を追加 | 0.572241 | 0.343029 | 0.680480 | — |
+| 全体画像の候補を学習した枠品質で再選択 | 0.544161 | 0.316172 | 0.651822 | — |
+| 学習した枠品質で既存枠を補正しタイル候補を追加 | 0.558535 | 0.326579 | 0.668070 | — |
+| 全体画像とタイルの全候補を枠品質で再選択 | 0.497794 | 0.257072 | 0.611468 | — |
+
+水平反転TTAは、各モデルの元画像と反転画像の候補を元の座標に揃え、WBF
+IoU 0.55で統合した。その後、Faster R-CNNとD2を1:2で統合し、提出時の下限は
+0.34とした。独立確認735枚の内訳は `arvalis_3` 0.529517→0.536762、
+`inrae_1` 0.644416→0.651745。提出Notebook v1（commit `53b276a`、
+提出ID `58374318`）は **Public 0.6772 / Private 0.5719**。
+
+タイルでは、画像辺の65%の窓を四隅から採り、クロップの内側の境界から画像辺の
+2%以内にかかる枠を除外した。D2の入力は768px。候補追加の試行では、
+全体画像で採用した枠とのIoUが0.30未満でconfidenceが0.50以上の小さい枠を候補とした。
+固定検証用の候補はKaggle Notebook v1（commit `809b59a`）で取得した。
+小さい穂の再現率は6.7%から15.2%へ増え、見逃しは4,744件から4,151件に減った。
+誤検出が1,765件から2,946件に増え、固定検証総合点は低下した。
+
+枠品質は、両方の検出器が未使用のGWHD 2021の385枚・7撮影元で学習した。
+候補枠の形状、画像内の位置、モデル間のIoUとconfidenceから、
+最大IoUが0.50〜0.75の6段階のうち何段階を満たすかをリッジ回帰で予測した。
+全候補を再選択する方法は品質判定の下限0.22、0.29、0.36を比較し、
+表には最高の固定検証値を記載した。補正する方法は、元の候補とIoU 0.50以上で
+予測品質が0.05以上高いタイルの枠へ座標を寄せ、対応する元の枠がない場合は
+予測品質0.58以上のタイル候補を追加した。全体画像の候補で撮影元を一つずつ
+外した品質予測のMAEは0.240〜0.298。4タイルと枠品質を使う方法は固定検証で
+比較元を下回ったため、独立確認とKaggle提出の対象から外した。
+
+| 枠品質の下限 | 全体画像で再選択 | 全体画像とタイルで再選択 |
+| ---: | ---: | ---: |
+| 0.22 | 0.534634 | 0.454414 |
+| 0.29 | 0.540310 | 0.482223 |
+| 0.36 | 0.544161 | 0.497794 |
+
+再現手順
+
+```bash
+# 提出Notebook v1の生成には実行時のcommit 53b276aを使用
+uv run --no-sync python scripts/build_submission_notebook.py \
+  configs/submission-d2-mbv3-hflip-tta.json --output outputs/proposal-quality/kaggle-tta
+
+# 既存の検出器チェックポイント、固定分割とGWHD 2021の監査済みアーカイブを使用
+PYTORCH_ENABLE_MPS_FALLBACK=1 uv run --locked --group wheat --with 'ensemble-boxes==1.0.9' \
+  python scripts/wheat_proposal_experiment.py field
+uv run --locked --group wheat --with 'ensemble-boxes==1.0.9' \
+  python scripts/wheat_proposal_experiment.py screen-global
+
+.venv/bin/kaggle kernels output yutarotaro/wheat-benchmark-d2-tiles-validation/1 \
+  --file-pattern '^validation-tiles\.json$' -p outputs/proposal-quality
+.venv/bin/kaggle kernels output yutarotaro/wheat-benchmark-d2-tiles-field/1 \
+  --file-pattern '^field-tiles\.json$' -p outputs/proposal-quality
+uv run --locked --group wheat --with 'ensemble-boxes==1.0.9' \
+  python scripts/wheat_proposal_experiment.py screen-tiles
+```
+
+[TTAの提出Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-infer-d2-mbv3-hflip-tta) ·
+[TTAのMLflow推論Run](http://localhost:5050/#/experiments/1/runs/75cbb24154074b9babdcfadec82cdb73) ·
+[固定検証のタイル候補Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-benchmark-d2-tiles-validation) ·
+[GWHD 2021のタイル候補Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-benchmark-d2-tiles-field) ·
+[タイル追加のMLflow Run](http://localhost:5050/#/experiments/1/runs/b533fb9f20c348799ddedf741663a27e) ·
+[全体画像の枠品質による再選択のMLflow Run](http://localhost:5050/#/experiments/1/runs/b06619a196ce499cb2c315428dd37a3f) ·
+[タイル枠の品質による補正のMLflow Run](http://localhost:5050/#/experiments/1/runs/c8de396d0ab34a8a95fbdb647303aa01) ·
+[全体画像とタイルから再選択したMLflow Run](http://localhost:5050/#/experiments/1/runs/0acd815be18d4b8fbce1d06887105b1a)
 
 実験を始めたら、以下を記録する。
 

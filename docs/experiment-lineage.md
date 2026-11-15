@@ -128,6 +128,34 @@ flowchart TB
 - [初期単体の提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-baseline-late-20261114) · [D2＋Faster R-CNNの提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-d2-mbv3-wbf040) · [YOLOX-S単体の提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-yolox-s-6e-768-conf030)
 - [Private 0.5651の提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-d2-mbv3-wbf045-d2x2) · [MLflow提出Run](http://localhost:5050/#/experiments/1/runs/de5bd96bb3964629938b13ec172dd35a)
 
+## 画像全体・反転・タイルの比較
+
+```mermaid
+%%{init: {"htmlLabels": false, "flowchart": {"padding": 24, "nodeSpacing": 28}}}%%
+flowchart TB
+    W["提出 58370638のWBF<br/>固定検証 0.587241<br/>独立確認 0.557030<br/>commit 64ba330"]
+    T["水平反転した枠を統合<br/>反転で見逃しを補う<br/>固定検証 0.598597<br/>独立確認 0.564296<br/>commit 53b276a"]
+    P["D2の4タイル候補を追加<br/>小さい穂の見逃しを補う<br/>固定検証 0.572241<br/>commit fc86e28"]
+    Q["学習した枠品質で再選択<br/>枠の重なりを推定する<br/>固定検証 0.544161<br/>commit 569217c"]
+    R["枠品質で座標補正と候補追加<br/>タイル由来の誤検出を抑える<br/>固定検証 0.558535<br/>実装 commit c4d3328"]
+    A["全体画像とタイルから再選択<br/>枠品質で順位を付け直す<br/>固定検証 0.497794<br/>実装 commit c4d3328"]
+    S["Kaggle 58374318 · v1<br/>Public 0.6772<br/>Private 0.5719<br/>比較元 58370638<br/>commit 53b276a"]
+
+    W --> T --> S
+    W --> P
+    W --> Q
+    P --> R
+    Q --> R
+    P --> A
+    Q --> A
+
+    classDef submission fill:#e6f3eb,color:#204d34,stroke:#73a287
+    class S submission
+```
+
+- [水平反転TTAの提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-d2-mbv3-hflip-tta) · [MLflow提出Run](http://localhost:5050/#/experiments/1/runs/75cbb24154074b9babdcfadec82cdb73)
+- MLflowの推論Runの親は表示用に1件を選ぶ。アンサンブルで使った全学習RunはDescriptionと `model_input_run_ids` で確認できる。
+
 <details>
 <summary>初期試行のIDと凍結ソースハッシュ</summary>
 
