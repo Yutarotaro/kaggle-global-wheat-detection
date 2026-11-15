@@ -160,6 +160,29 @@ Kaggle投入前に停止した。文書の図を同梱対象から外す設定�
   --state .loop-wheat --budget 2h --trials 1
 ```
 
+## 2026-11-15 YOLOX-SとEfficientDet-D2のアンサンブル
+
+YOLOX-SでEfficientDet-D2の見逃しを補えるかを、撮影元で固定した検証636枚で調べる。
+比較元はD2単体の `d31623fdd5114e49-0001` と、D2およびFaster R-CNNのWBF
+（出力confidence 0.40で0.580485）。YOLOX-Sは同じKaggle学習データ2,002枚を使い、
+COCO事前学習済み重みを起点に、768px、6 epoch、バッチ4、seed 42、横反転確率0.5で学習する。
+予測保存のconfidence下限は0.30、NMSのIoUは0.50。ソースと初期重みの版とSHA-256は
+`src/wheat/yolox_model.py` に固定した。 [YOLOXの実装](https://github.com/Megvii-BaseDetection/YOLOX/tree/419778480ab6ec0590e5d3831b3afb3b46ab2aa3)
+
+単体と、D2＋YOLOX-S、D2＋YOLOX-S＋Faster R-CNNを、既存のWBFと同じ均等重み、
+統合IoU 0.55、出力confidence 0.40で比較する。全体・撮影元別のスコアと、
+小さい穂の再現率、誤検出、重複、見逃しの件数を記録する。
+
+```bash
+uv sync --locked --group wheat --group yolo --group kaggle
+../ml-research-loop/.venv/bin/ml-loop run --project . --config loop.yolox.toml \
+  --state .loop-wheat --budget 6h --trials 1
+```
+
+学習完了後、`scripts/ensemble_predictions.py` に各試行の成果物ディレクトリを渡し、
+`--iou 0.55 --confidence 0.40 --track` を指定する。MLflowの学習Runから学習・検証lossと
+epoch別の検出画像を、推論Runから親の学習Runと評価結果を参照できる。
+
 ## 2026-11-14: GWHD 2020 v4のローカル接続確認
 
 [公式公開版（Zenodo 4298502）](https://zenodo.org/records/4298502)の注釈付き画像から、

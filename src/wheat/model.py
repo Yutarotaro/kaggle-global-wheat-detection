@@ -83,6 +83,10 @@ class EfficientWheat(nn.Module):
 
 def create_model(config, pretrained=True):
     detector = config.get("detector", "fasterrcnn-mobilenet-v3")
+    if detector == "yolox-s":
+        from yolox_model import YoloWheat
+
+        return YoloWheat(config, pretrained)
     if detector == "efficientdet-d2":
         return EfficientWheat(config, pretrained)
     if detector != "fasterrcnn-mobilenet-v3":

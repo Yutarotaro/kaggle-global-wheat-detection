@@ -264,6 +264,12 @@ def main(resources):
     }
     if config.get("detector") == "efficientdet-d2":
         environment.update(effdet=version("effdet"), timm=version("timm"))
+    if config.get("detector") == "yolox-s":
+        import cv2
+        from yolox_model import SOURCE_REVISION, WEIGHTS_SHA256
+
+        environment.update(yolox_revision=SOURCE_REVISION, yolox_initial_weights_sha256=WEIGHTS_SHA256,
+                           opencv=cv2.__version__, loguru=version("loguru"))
     (out / "predictions.json").write_text(json.dumps({"images": predictions, "environment": environment}, allow_nan=False))
 
 

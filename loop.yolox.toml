@@ -1,0 +1,39 @@
+seed = 42
+target_score = 0.9
+require_trial_commits = true
+baseline_reference = "d31623fdd5114e49-0001"
+baseline_hypothesis = "同じ学習画像・入力768pxでCOCO事前学習済みYOLOX-Sを6 epoch学習。EfficientDet-D2と単体を比較し、WBFで小さい穂の見逃しと誤検出を減らせるか検証する。"
+runtime_s = 4800
+agent_s = 600
+smoke_s = 120
+evaluate_s = 300
+poll_s = 10
+editable = ["configs/yolox.json"]
+
+[agent]
+type = "config-sweep"
+aggregate_only = true
+path = "configs/yolox.json"
+variants = []
+
+[executor]
+type = "kaggle"
+owner = "yutarotaro"
+binary = ".venv/bin/kaggle"
+competition = "global-wheat-detection"
+notebook_prefix = "wheat-train"
+notebook_label_file = "configs/yolox.json"
+notebook_exclude_dirs = ["docs/figures"]
+accelerator = "NvidiaTeslaT4"
+internet = true
+
+[task]
+type = "command"
+interpreter = ".venv/bin/python"
+metric = "wheat_image_precision"
+direction = "max"
+train = ["python", "src/wheat/train.py", "--config", "configs/yolox.json", "--epoch-previews"]
+smoke = ["python", "src/wheat/train.py", "--config", "configs/yolox.json", "--smoke"]
+evaluate = ["python", "src/wheat/evaluate.py"]
+dataset_manifest = "data/prepared/split.json"
+remote_inputs = ["data/prepared/split.json"]
