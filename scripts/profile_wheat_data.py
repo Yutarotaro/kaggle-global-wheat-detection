@@ -8,6 +8,8 @@ from collections import defaultdict
 from pathlib import Path
 from statistics import mean, median, quantiles
 
+from PIL import Image, ImageStat
+
 PROJECT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT / "src/wheat"))
 
@@ -20,6 +22,8 @@ AREA_EDGES = (0.002, 0.01)
 
 def summarize(records):
     counts = [len(record["boxes"]) for record in records]
+    brightness = [record["brightness"] for record in records]
+    deciles = quantiles(brightness, n=10, method="inclusive") if len(brightness) > 1 else brightness
     count_bins = [0] * (len(COUNT_EDGES) + 1)
     area_bins = [0] * (len(AREA_EDGES) + 1)
     for record, count in zip(records, counts):
@@ -36,6 +40,9 @@ def summarize(records):
         "max": max(counts),
         "count_bins": count_bins,
         "area_bins": area_bins,
+        "brightness": {
+            "mean": mean(brightness), "median": median(brightness), "p10": deciles[0], "p90": deciles[-1],
+        },
     }
 
 
@@ -65,6 +72,8 @@ def main():
         groups = defaultdict(list)
         for image_id in ids:
             record = records[image_id]
+            with Image.open(root / "train" / f"{image_id}.jpg") as image:
+                record["brightness"] = ImageStat.Stat(image.convert("L")).mean[0]
             groups[record["source"]].append(record)
         partition_hashes = {hashes[image_id] for image_id in ids}
         if seen_sources.intersection(groups) or seen_hashes.intersection(partition_hashes):

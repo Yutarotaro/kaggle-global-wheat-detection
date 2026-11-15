@@ -79,6 +79,19 @@ def plot_distribution(profile, output, field, total, title, xlabel, bins, colors
     save(fig, output / f"wheat-data-{name}.png")
 
 
+def plot_brightness(profile, output):
+    rows = list(sources(profile))
+    labels = [f"{label}  {source}" for label, source, _, _ in rows]
+    fig, ax = make_axis("撮影元ごとの画像の明るさ", labels, "画像内の平均グレー階調（0–255）", 3.0)
+    for i, (_, _, color, stats) in enumerate(rows):
+        brightness = stats["brightness"]
+        ax.hlines(i, brightness["p10"], brightness["p90"], color=color, linewidth=3, alpha=0.65)
+        ax.scatter(brightness["mean"], i, color=color, s=40, zorder=3)
+    ax.set_xlim(0, 255)
+    ax.xaxis.set_major_locator(MultipleLocator(50))
+    save(fig, output / "wheat-data-brightness.png")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("profile", type=Path)
@@ -99,6 +112,8 @@ def main():
     plot_distribution(profile, args.output, "area_bins", "heads", "正解枠の面積の分布", "注釈の割合",
                       ("0.2%未満", "0.2%以上・1%未満", "1%以上"),
                       ("#b75824", "#8fb3dd", "#345895"), "box-areas")
+    if "brightness" in profile["partitions"]["train"]["all"]:
+        plot_brightness(profile, args.output)
 
 
 if __name__ == "__main__":
