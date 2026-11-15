@@ -476,6 +476,11 @@ Kaggleの元データだけを使い8 epoch実行した（`66b8fdb7d8944873-0001
 出力の閾値だけでは改善しなかった。
 [学習Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-train-rtdetr-v2-r18-8e-640-95dd0119db16)
 
+別の候補として、1,024pxの解像度で学習するEfficientDet-D4を用意した。
+Kaggle元データ、拡大クロップ50%、背景5%を使い、より深いBiFPNと
+入力解像度を合わせた学習の効果を調べる。ローカルの学習・推論smokeを確認済み。
+実行設定は `loop.efficientdet-d4.toml`。
+
 実験を始めたら、以下を記録する。
 
 | 項目 | 内容 |

@@ -21,7 +21,7 @@ from torchvision.transforms import ColorJitter
 
 from data import sha
 from metric import area, image_score, match
-from model import create_model
+from model import EFFICIENTDET_MODELS, create_model
 from preprocess import mosaic, read_image, zoom_crop
 from preview_samples import select_preview_ids
 from supplement import unpack_supplement
@@ -421,7 +421,7 @@ def main(resources):
         "device": str(device), "cuda": torch.version.cuda,
         "gpu": torch.cuda.get_device_name(0) if device.type == "cuda" else None,
     }
-    if config.get("detector") == "efficientdet-d2":
+    if config.get("detector") in EFFICIENTDET_MODELS:
         environment.update(effdet=version("effdet"), timm=version("timm"))
     elif config.get("detector") == "rtdetr-v2-r18":
         environment.update(transformers=version("transformers"), scipy=version("scipy"))

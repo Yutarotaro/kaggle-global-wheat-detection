@@ -1,0 +1,45 @@
+seed = 42
+require_trial_commits = true
+baseline_reference = "1d692cda0f6e4cd2-0001"
+baseline_hypothesis = "1,024px推論だけではD2が悪化した。1,024px・EfficientNet-B4とより深いBiFPNのD4を、Kaggle元データの拡大クロップと背景5%で学習し、小さい穂を初めからこの入力解像度で学ぶ効果を比較する。"
+runtime_s = 10800
+agent_s = 600
+smoke_s = 240
+evaluate_s = 300
+poll_s = 15
+editable = ["configs/efficientdet-d4-1024.json"]
+
+[selection]
+group_metric = "by_source"
+max_group_regression = 0.01
+
+[agent]
+type = "config-sweep"
+aggregate_only = true
+path = "configs/efficientdet-d4-1024.json"
+
+[[agent.variants]]
+hypothesis = "D4で拡大クロップが入力解像度の効果と重複するかを測る。"
+overrides = {run_label = "d4-6e-1024-full-neg05", zoom_crop_probability = 0}
+
+[executor]
+type = "kaggle"
+owner = "yutarotaro"
+binary = ".venv/bin/kaggle"
+competition = "global-wheat-detection"
+notebook_prefix = "wheat-train"
+notebook_label_file = "configs/efficientdet-d4-1024.json"
+notebook_exclude_dirs = ["docs", "notebooks", "scripts", "tests", ".github"]
+accelerator = "NvidiaTeslaT4"
+internet = true
+
+[task]
+type = "command"
+interpreter = ".venv/bin/python"
+metric = "wheat_image_precision"
+direction = "max"
+train = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-d4-1024.json", "--background-crops", "data/prepared/background-crops.json", "--epoch-previews", "--epoch-scores"]
+smoke = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-d4-1024.json", "--background-crops", "data/prepared/background-crops.json", "--smoke"]
+evaluate = ["python", "src/wheat/evaluate.py"]
+dataset_manifest = "data/prepared/split.json"
+remote_inputs = ["data/prepared/split.json", "data/prepared/background-crops.json"]

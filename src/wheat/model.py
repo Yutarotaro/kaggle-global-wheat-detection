@@ -17,6 +17,7 @@ from torchvision.transforms.functional import normalize, resize
 
 EFFDET_PACKAGES = {"effdet": "0.4.1", "timm": "1.0.22"}
 RTDETR_PACKAGES = {"scipy": "1.16.3", "transformers": "4.57.6"}
+EFFICIENTDET_MODELS = {"efficientdet-d2": "tf_efficientdet_d2", "efficientdet-d4": "tf_efficientdet_d4"}
 
 
 def prepare_packages(packages, group):
@@ -47,7 +48,7 @@ class EfficientWheat(nn.Module):
             raise ValueError("EfficientDet uses NMS at IoU 0.50.")
         if self.size % 128:
             raise ValueError("EfficientDet image size must be a multiple of 128.")
-        network = create_model("tf_efficientdet_d2", num_classes=1, pretrained=pretrained,
+        network = create_model(EFFICIENTDET_MODELS[config["detector"]], num_classes=1, pretrained=pretrained,
                                pretrained_backbone=False, image_size=(self.size, self.size),
                                max_det_per_image=300)
         self.loss_bench = DetBenchTrain(network)
@@ -142,7 +143,7 @@ class RTDetrWheat(nn.Module):
 
 def create_model(config, pretrained=True):
     detector = config.get("detector", "fasterrcnn-mobilenet-v3")
-    if detector == "efficientdet-d2":
+    if detector in EFFICIENTDET_MODELS:
         return EfficientWheat(config, pretrained)
     if detector == "rtdetr-v2-r18":
         return RTDetrWheat(config, pretrained)
