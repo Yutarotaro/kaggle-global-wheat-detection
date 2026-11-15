@@ -33,6 +33,7 @@ NUMBER = r"\d+(?:\.\d+)?(?:[eE][+-]?\d+)?"
 LOSS = re.compile(rf"^Epoch ([1-9]\d*): loss ({NUMBER})(?: val_loss ({NUMBER}))?"
                   rf"(?: optimizer_steps (\d+))?(?: valid_wheat_image_precision ({NUMBER}))?[ \t]*$", re.MULTILINE)
 KERNEL = re.compile(r"[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/\d+")
+DIAGNOSTICS = re.compile(r"^Epoch diagnostics ([1-9]\d*): ({[^\n]+})$", re.MULTILINE)
 
 
 def snapshots(state):
@@ -74,6 +75,12 @@ def epoch_losses(path):
                   (("train_loss", train), ("valid_loss", valid), ("optimizer_steps", steps),
                    ("valid_wheat_image_precision", score)) if value}
         rows[int(epoch)] = {name: value for name, value in values.items() if math.isfinite(value)}
+    for epoch, payload in DIAGNOSTICS.findall(text):
+        values = json.loads(payload)
+        rows.setdefault(int(epoch), {}).update(
+            (name, float(value)) for name, value in values.items()
+            if name.startswith("valid_") and type(value) in (int, float) and math.isfinite(value)
+        )
     return rows
 
 

@@ -19,20 +19,22 @@ from torch.utils.data import DataLoader, Dataset, RandomSampler
 from torchvision.transforms import ColorJitter
 
 from data import sha
-from metric import image_score
+from metric import area, image_score, match
 from model import create_model
-from preprocess import mosaic, read_image
+from preprocess import mosaic, read_image, zoom_crop
 from preview_samples import select_preview_ids
 from supplement import unpack_supplement
 
 
 class Images(Dataset):
     def __init__(self, root, ids, boxes, flip=0, vertical_flip=0, color_jitter=0, mosaic_probability=0,
-                 extra_root=None):
+                 extra_root=None, crop_probability=0, seed=42):
         self.root, self.ids, self.boxes, self.flip = root, ids, boxes, flip
         self.vertical_flip = vertical_flip
         self.mosaic_probability = mosaic_probability
         self.extra_root = extra_root
+        self.crop_probability = crop_probability
+        self.crop_rng = random.Random(seed)
         self.color_jitter = (ColorJitter(brightness=color_jitter, contrast=color_jitter,
                                         saturation=color_jitter) if color_jitter else None)
 
@@ -43,7 +45,10 @@ class Images(Dataset):
         if self.mosaic_probability and random.random() < self.mosaic_probability:
             partners = random.sample(range(len(self.ids) - 1), 3)
             return mosaic([self.load(i), *(self.load(j + (j >= i)) for j in partners)])
-        return self.load(i)
+        image, target = self.load(i)
+        if self.crop_probability and self.crop_rng.random() < self.crop_probability:
+            return zoom_crop(image, target, self.crop_rng)
+        return image, target
 
     def load(self, i):
         key = self.ids[i]
@@ -102,6 +107,28 @@ def predict(model, data, ids, device):
     return predictions
 
 
+def validation_diagnostics(predictions, boxes, metadata):
+    scores = defaultdict(list)
+    small_hits = small_total = false_positives = duplicates = 0
+    for key, guesses in predictions.items():
+        source, pixels = metadata[key]
+        truth = boxes[key]
+        scores[source].append(image_score(truth, guesses))
+        _, extras, repeated, misses = match(truth, guesses, 0.50)
+        small = {index for index, box in enumerate(truth) if area(box) < .002 * pixels}
+        small_hits += len(small.difference(misses))
+        small_total += len(small)
+        false_positives += len(extras)
+        duplicates += len(repeated)
+    metrics = {f"valid_score_by_source.{source}": sum(values) / len(values)
+               for source, values in scores.items()}
+    metrics.update(valid_false_positives_iou_50=false_positives, valid_duplicates_iou_50=duplicates)
+    if small_total:
+        metrics["valid_small_recall_iou_50"] = small_hits / small_total
+    overall = sum(map(sum, scores.values())) / len(predictions)
+    return overall, metrics
+
+
 def main(resources):
     parser = argparse.ArgumentParser()
     parser.add_argument("--smoke", action="store_true")
@@ -128,8 +155,11 @@ def main(resources):
     config.setdefault("color_jitter", 0)
     config.setdefault("validation_loss", False)
     config.setdefault("mosaic", 0)
+    config.setdefault("zoom_crop_probability", 0)
     if not 0 <= config["mosaic"] <= 1:
         raise ValueError("Mosaic probability must be in [0, 1].")
+    if not 0 <= config["zoom_crop_probability"] <= 1 or config["zoom_crop_probability"] and config["mosaic"]:
+        raise ValueError("Zoom-crop probability must be in [0, 1] and requires Mosaic to be disabled.")
     assert 0 <= config["horizontal_flip"] <= 1
     assert 0 <= config["vertical_flip"] <= 1 and 0 <= config["color_jitter"] <= 1
     assert 0 < config["confidence"] < 1 and 0 < config["nms"] < 1
@@ -146,6 +176,8 @@ def main(resources):
                   for _ in sample]
         if config["mosaic"]:
             sample[0], labels[0] = mosaic([(sample[0], labels[0])] * 4)
+        if config["zoom_crop_probability"]:
+            sample[0], labels[0] = zoom_crop(sample[0], labels[0], random.Random(seed))
         loss = sum(model(sample, labels).values())
         if not torch.isfinite(loss):
             raise ValueError("Smoke loss is not finite.")
@@ -206,11 +238,14 @@ def main(resources):
     if valid_loss_ids and (train_ids & valid_loss_ids or remote and args.data_source == "gwhd2020-v4"):
         raise ValueError("Validation loss requires separate validation annotations in the training environment.")
     boxes = defaultdict(list)
+    valid_metadata = {}
     with (data / "train.csv").open(newline="") as handle:
         for row in csv.DictReader(handle):
             if row["image_id"] in train_ids or row["image_id"] in valid_loss_ids:
                 x, y, w, h = json.loads(row["bbox"])
                 boxes[row["image_id"]].append([x, y, x + w, y + h])
+                if args.epoch_scores and row["image_id"] in valid_loss_ids:
+                    valid_metadata[row["image_id"]] = row["source"], int(row["width"]) * int(row["height"])
     if valid_loss_ids - boxes.keys():
         raise ValueError("Missing validation annotations for validation loss.")
 
@@ -240,7 +275,8 @@ def main(resources):
         if config["mosaic"] and len(train_ids) < 4:
             raise ValueError("Mosaic requires at least four training images.")
         dataset = Images(data, sorted(train_ids | extra.keys()), boxes, config["horizontal_flip"],
-                         config["vertical_flip"], config["color_jitter"], config["mosaic"], extra_root)
+                         config["vertical_flip"], config["color_jitter"], config["mosaic"], extra_root,
+                         crop_probability=config["zoom_crop_probability"], seed=seed)
         sampler = (RandomSampler(dataset, num_samples=len(train_ids), generator=torch.Generator().manual_seed(seed))
                    if extra else None)
         loader = DataLoader(dataset, batch_size=config["batch_size"], sampler=sampler, shuffle=sampler is None,
@@ -274,7 +310,7 @@ def main(resources):
             epoch_predictions = None
             if args.epoch_scores:
                 epoch_predictions = predict(model, data, inference_ids, device)
-                score = sum(image_score(boxes[key], epoch_predictions[key]) for key in inference_ids) / len(inference_ids)
+                score, diagnostics = validation_diagnostics(epoch_predictions, boxes, valid_metadata)
                 progress += f" valid_wheat_image_precision {score:.9f}"
                 if score > best_score:
                     best_score, best_epoch = score, epoch + 1
@@ -287,6 +323,8 @@ def main(resources):
                            else predict(model, data, preview_ids, device))
                 (preview_dir / f"epoch-{epoch + 1:03d}.json").write_text(json.dumps(preview, allow_nan=False))
             print(progress, flush=True)
+            if args.epoch_scores:
+                print(f"Epoch diagnostics {epoch + 1}: {json.dumps(diagnostics, allow_nan=False)}", flush=True)
         if args.epoch_scores:
             torch.save(model.state_dict(), out / "weights-last.pt")
             (out / "checkpoint-selection.json").write_text(

@@ -22,6 +22,24 @@ def read_image(path, boxes, flip, vertical_flip=0, color_jitter=None):
     return image, {"boxes": boxes, "labels": torch.ones(len(boxes), dtype=torch.int64)}
 
 
+def zoom_crop(image, target, rng):
+    """Crop at a random field of view, preserving the visible portions of boxes."""
+    height, width = image.shape[-2:]
+    scale = rng.uniform(0.60, 0.82)
+    crop_h, crop_w = max(1, round(height * scale)), max(1, round(width * scale))
+    x, y = rng.randrange(width - crop_w + 1), rng.randrange(height - crop_h + 1)
+    boxes = target["boxes"]
+    clipped = boxes - boxes.new_tensor([x, y, x, y])
+    clipped[:, 0::2].clamp_(0, crop_w)
+    clipped[:, 1::2].clamp_(0, crop_h)
+    size = clipped[:, 2:] - clipped[:, :2]
+    original_area = (boxes[:, 2:] - boxes[:, :2]).prod(dim=1)
+    keep = (size >= 2).all(dim=1) & (size.prod(dim=1) >= 0.40 * original_area)
+    return image[:, y:y + crop_h, x:x + crop_w], {
+        "boxes": clipped[keep], "labels": target["labels"][keep],
+    }
+
+
 def mosaic(samples):
     """Combine four training crops and clip and translate their boxes."""
     size = samples[0][0].shape[-1]
