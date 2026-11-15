@@ -14,10 +14,12 @@ from pathlib import Path
 
 import torch
 import torchvision
+from PIL import Image
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 from torchvision.transforms import ColorJitter
 
 from data import sha
+from metric import image_score
 from model import create_model
 from preprocess import mosaic, read_image
 from preview_samples import select_preview_ids
@@ -45,7 +47,7 @@ class Images(Dataset):
 
     def load(self, i):
         key = self.ids[i]
-        root = self.extra_root if self.extra_root and key.startswith("gwhd2021-mons-") else self.root
+        root = self.extra_root if self.extra_root and key.startswith("gwhd2021-") else self.root
         return read_image(root / "train" / f"{key}.jpg", self.boxes.get(key, []),
                           self.flip, self.vertical_flip, self.color_jitter)
 
@@ -109,12 +111,19 @@ def main(resources):
     parser.add_argument("--partition", choices=("validation", "holdout"), default="validation")
     parser.add_argument("--epoch-previews", action="store_true", help="Save predictions for four fixed validation images.")
     parser.add_argument("--mons-supplement", type=Path, help="Manifest for the optional Arvalis_10 training data.")
+    parser.add_argument("--training-supplement", type=Path, help="Pinned supplement used when enabled in the config.")
+    parser.add_argument("--epoch-scores", action="store_true", help="Score fixed validation after every epoch.")
     args = parser.parse_args()
     if args.partition == "holdout" and not args.weights:
         parser.error("Holdout inference requires an existing checkpoint.")
-    if args.mons_supplement and (args.data_source != "competition" or args.weights):
-        parser.error("The Mons supplement applies only to competition model training.")
     config = json.loads(args.config.read_text())
+    if args.mons_supplement and args.training_supplement:
+        parser.error("Provide one training supplement manifest.")
+    if config.get("use_training_supplement") and not (args.training_supplement or args.weights):
+        parser.error("The config requires --training-supplement.")
+    supplement = args.mons_supplement or (args.training_supplement if config.get("use_training_supplement") else None)
+    if (supplement or args.epoch_scores) and (args.data_source != "competition" or args.weights):
+        parser.error("Supplements and epoch scores apply only to competition model training.")
     config.setdefault("vertical_flip", 0)
     config.setdefault("color_jitter", 0)
     config.setdefault("validation_loss", False)
@@ -193,7 +202,7 @@ def main(resources):
     for key in sorted(train_ids | set(inference_ids)):
         if sha(data / "train" / f"{key}.jpg") != split["images"][key]:
             raise ValueError(f"Image does not match frozen data: {key}")
-    valid_loss_ids = set(inference_ids) if not args.weights and config["validation_loss"] else set()
+    valid_loss_ids = set(inference_ids) if not args.weights and (config["validation_loss"] or args.epoch_scores) else set()
     if valid_loss_ids and (train_ids & valid_loss_ids or remote and args.data_source == "gwhd2020-v4"):
         raise ValueError("Validation loss requires separate validation annotations in the training environment.")
     boxes = defaultdict(list)
@@ -205,22 +214,31 @@ def main(resources):
     if valid_loss_ids - boxes.keys():
         raise ValueError("Missing validation annotations for validation loss.")
 
+    extra = {}
+    extra_root = None
+    if supplement:
+        manifest_path = project / supplement
+        archive_name = json.loads(manifest_path.read_text()).get("archive_file", "gwhd2021-mons.zip")
+        if not archive_name or Path(archive_name).name != archive_name:
+            raise ValueError("Expected a supplement archive filename.")
+        archives = (list(Path("/kaggle/input").rglob(archive_name)) if remote else
+                    [manifest_path.with_name(archive_name)])
+        extra_root, extra = unpack_supplement(manifest_path, archives, project / split_path, resources)
+        if set(extra).intersection(split["images"]):
+            raise ValueError("Supplement contains a competition image ID.")
+        for key in (min(extra), max(extra)):
+            with Image.open(extra_root / "train" / f"{key}.jpg") as image:
+                image.load()
+        boxes.update(extra)
+        print(f"Verified and opened training supplement with {len(extra)} images.", flush=True)
+
+    predictions = None
     model = create_model(config, pretrained=not args.weights).to(device)
     if args.weights:
         model.load_state_dict(torch.load(args.weights, map_location=device, weights_only=True))
     else:
         if config["mosaic"] and len(train_ids) < 4:
             raise ValueError("Mosaic requires at least four training images.")
-        extra = {}
-        extra_root = None
-        if args.mons_supplement:
-            archives = (list(Path("/kaggle/input").rglob("gwhd2021-mons.zip")) if remote else
-                        [project / "data/gwhd2021/mons/gwhd2021-mons.zip"])
-            extra_root, extra = unpack_supplement(project / args.mons_supplement, archives,
-                                                  project / split_path, resources)
-            if set(extra).intersection(split["images"]):
-                raise ValueError("Supplement contains a competition image ID.")
-            boxes.update(extra)
         dataset = Images(data, sorted(train_ids | extra.keys()), boxes, config["horizontal_flip"],
                          config["vertical_flip"], config["color_jitter"], config["mosaic"], extra_root)
         sampler = (RandomSampler(dataset, num_samples=len(train_ids), generator=torch.Generator().manual_seed(seed))
@@ -238,6 +256,8 @@ def main(resources):
         if preview_ids:
             preview_dir = out / "epoch-previews"
             preview_dir.mkdir(exist_ok=True)
+        best_score = float("-inf")
+        best_epoch = None
         for epoch in range(config["epochs"]):
             model.train()
             loss_total = 0
@@ -250,13 +270,31 @@ def main(resources):
             progress = f"Epoch {epoch + 1}: loss {loss_total / len(train_ids):.5f}"
             if valid_loader is not None:
                 progress += f" val_loss {validation_loss(model, valid_loader, device, seed):.5f}"
-            print(f"{progress} optimizer_steps {(epoch + 1) * len(loader)}", flush=True)
-            torch.save(model.state_dict(), out / "weights.pt")
+            progress += f" optimizer_steps {(epoch + 1) * len(loader)}"
+            epoch_predictions = None
+            if args.epoch_scores:
+                epoch_predictions = predict(model, data, inference_ids, device)
+                score = sum(image_score(boxes[key], epoch_predictions[key]) for key in inference_ids) / len(inference_ids)
+                progress += f" valid_wheat_image_precision {score:.9f}"
+                if score > best_score:
+                    best_score, best_epoch = score, epoch + 1
+                    predictions = epoch_predictions
+                    torch.save(model.state_dict(), out / "weights.pt")
+            else:
+                torch.save(model.state_dict(), out / "weights.pt")
             if preview_ids:
-                preview = predict(model, data, preview_ids, device)
+                preview = ({key: epoch_predictions[key] for key in preview_ids} if epoch_predictions is not None
+                           else predict(model, data, preview_ids, device))
                 (preview_dir / f"epoch-{epoch + 1:03d}.json").write_text(json.dumps(preview, allow_nan=False))
+            print(progress, flush=True)
+        if args.epoch_scores:
+            torch.save(model.state_dict(), out / "weights-last.pt")
+            (out / "checkpoint-selection.json").write_text(
+                json.dumps({"best_epoch": best_epoch, "best_score": best_score, "last_epoch": config["epochs"]},
+                           allow_nan=False) + "\n")
 
-    predictions = predict(model, data, inference_ids, device)
+    if predictions is None:
+        predictions = predict(model, data, inference_ids, device)
     environment = {
         "python": platform.python_version(), "torch": torch.__version__, "torchvision": torchvision.__version__,
         "device": str(device), "cuda": torch.version.cuda,

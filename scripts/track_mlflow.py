@@ -31,7 +31,7 @@ TERMINAL = {"succeeded": "FINISHED", "failed": "FAILED", "interrupted": "KILLED"
 DECISION_LABELS = {"baseline": "基準", "accepted": "採用", "rejected": "不採用", "held": "保留", "unscored": "未評価"}
 NUMBER = r"\d+(?:\.\d+)?(?:[eE][+-]?\d+)?"
 LOSS = re.compile(rf"^Epoch ([1-9]\d*): loss ({NUMBER})(?: val_loss ({NUMBER}))?"
-                  r"(?: optimizer_steps (\d+))?[ \t]*$", re.MULTILINE)
+                  rf"(?: optimizer_steps (\d+))?(?: valid_wheat_image_precision ({NUMBER}))?[ \t]*$", re.MULTILINE)
 KERNEL = re.compile(r"[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/\d+")
 
 
@@ -69,9 +69,10 @@ def epoch_losses(path):
         except json.JSONDecodeError:
             return {}  # The controller may still be writing the final log.
     rows = {}
-    for epoch, train, valid, steps in LOSS.findall(text):
+    for epoch, train, valid, steps, score in LOSS.findall(text):
         values = {name: float(value) for name, value in
-                  (("train_loss", train), ("valid_loss", valid), ("optimizer_steps", steps)) if value}
+                  (("train_loss", train), ("valid_loss", valid), ("optimizer_steps", steps),
+                   ("valid_wheat_image_precision", score)) if value}
         rows[int(epoch)] = {name: value for name, value in values.items() if math.isfinite(value)}
     return rows
 
@@ -243,7 +244,7 @@ def sync(client, experiment_id, records, live):
 
         if status in TERMINAL:
             artifact_paths = (log, folder / "evaluate.log", folder / "evaluation.json",
-                              folder / "bundle/experiment.ipynb")
+                              folder / "bundle/experiment.ipynb", folder / "checkpoint-selection.json")
             for path in artifact_paths:
                 tag = f"artifact.{path.name}"
                 if path.is_file() and run.data.tags.get(tag) != "true":

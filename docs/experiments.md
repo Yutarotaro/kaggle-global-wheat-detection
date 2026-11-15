@@ -225,6 +225,25 @@ commit `dcb26bd`）。採点は **Public 0.5645 / Private 0.5005**。
 `.loop-wheat/experiments.md` に同期する。次の仮説提案にはこれらの記録と検証の集計を渡す。
 GPUやデータの問題でスコアが出なかった試行も、失敗の詳細を実験履歴に残す。
 
+### 385枚追加の学習比較を再現
+
+元画像の2,002枚と、追加385枚を含む2,387枚を比較する。追加群では各epochに2,002枚を
+重複なしで抽出し、両群の更新回数を3,006ステップにそろえる。固定検証を各epochで採点し、
+`weights.pt` に最良の重み、`weights-last.pt` に最終重み、
+`checkpoint-selection.json` に最良epochを保存する。比較はどちらも6 epochまで行う。
+
+```bash
+uv run --locked python scripts/prepare_gwhd2021_training.py \
+  data/gwhd2021/gwhd2021jpg.zip --output data/gwhd2021/field385
+../ml-research-loop/.venv/bin/ml-loop run --project . --config loop.efficientdet-field385.toml \
+  --state .loop-wheat --budget 8h --trials 2
+```
+
+追加アーカイブのSHA-256は `ce75e5496e61ec25254423fdd2dc060666b7d67139ca5401e8102137b2598997`。
+Kaggleにマウントした保管ファイルを同じSHA-256で確認する。
+[追加データ](https://www.kaggle.com/datasets/yutarotaro/wheat-gwhd2021-field385) ·
+[マウントの確認Notebook](https://www.kaggle.com/code/yutarotaro/wheat-field385-mount-check)
+
 実験を始めたら、以下を記録する。
 
 | 項目 | 内容 |

@@ -1,0 +1,46 @@
+seed = 42
+require_trial_commits = true
+baseline_reference = "d31623fdd5114e49-0001"
+baseline_hypothesis = "元のKaggle学習2,002枚でD2を再学習し、最良epochを選べる比較基準を作る。"
+runtime_s = 5400
+agent_s = 600
+smoke_s = 120
+evaluate_s = 300
+poll_s = 10
+editable = ["configs/efficientdet-field385.json"]
+
+[selection]
+group_metric = "by_source"
+max_group_regression = 0.01
+
+[agent]
+type = "config-sweep"
+aggregate_only = true
+path = "configs/efficientdet-field385.json"
+
+[[agent.variants]]
+hypothesis = "GWHD 2021の監査済み385枚を学習候補に加えると、同じ768px・6 epoch・各epoch 2,002入力で固定検証とarvalis_2の誤検出が改善するか。"
+overrides = {run_label = "effdet-d2-6e-768-field385", use_training_supplement = true}
+
+[executor]
+type = "kaggle"
+owner = "yutarotaro"
+binary = ".venv/bin/kaggle"
+competition = "global-wheat-detection"
+dataset_sources = ["yutarotaro/wheat-gwhd2021-field385"]
+notebook_prefix = "wheat-train"
+notebook_label_file = "configs/efficientdet-field385.json"
+notebook_exclude_dirs = ["docs/figures"]
+accelerator = "NvidiaTeslaT4"
+internet = true
+
+[task]
+type = "command"
+interpreter = ".venv/bin/python"
+metric = "wheat_image_precision"
+direction = "max"
+train = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-field385.json", "--training-supplement", "data/gwhd2021/field385/manifest.json", "--epoch-previews", "--epoch-scores"]
+smoke = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-field385.json", "--training-supplement", "data/gwhd2021/field385/manifest.json", "--smoke"]
+evaluate = ["python", "src/wheat/evaluate.py"]
+dataset_manifest = "data/prepared/split.json"
+remote_inputs = ["data/prepared/split.json", "data/gwhd2021/field385/manifest.json"]
