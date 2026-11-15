@@ -24,21 +24,22 @@ ANNOTATION = "sd-rwhd-boxes.json"
 
 def parse_obb(text):
     boxes = []
+    clipped_count = 0
     for line in text.splitlines():
         if not line.strip():
             continue
         category, *coords = line.split()
         points = [float(value) for value in coords]
-        if category != "0" or len(points) != 8 or not all(
-            math.isfinite(value) and 0 <= value <= 1 for value in points
-        ):
+        if category != "0" or len(points) != 8 or not all(map(math.isfinite, points)):
             raise ValueError(f"Expected one wheat class and four normalized vertices: {line}")
         xs, ys = points[::2], points[1::2]
-        box = min(xs), min(ys), max(xs), max(ys)
+        bounds = min(xs), min(ys), max(xs), max(ys)
+        box = tuple(min(max(value, 0.0), 1.0) for value in bounds)
         if box[2] <= box[0] or box[3] <= box[1]:
             raise ValueError("Empty annotation after converting from an oriented box.")
         boxes.append(box)
-    return boxes
+        clipped_count += box != bounds
+    return boxes, clipped_count
 
 
 def main():
@@ -69,13 +70,15 @@ def main():
         if photos.keys() != labels.keys() or len(photos) != 159:
             raise ValueError("Expected 159 one-to-one SD-RWHD image and label pairs.")
         archive_counts = []
+        clipped_annotations = 0
         for name, path in sorted(photos.items()):
             match = re.fullmatch(r"(\d+)_.+_(2023-\d{2}-\d{2})-\d{2}-\d{2}-\d{2}", name)
             if match is None:
                 raise ValueError(f"Missing acquisition date or plot ID: {name}")
             plot, day = match.groups()
-            boxes = parse_obb(source.read(str(labels[name])).decode())
+            boxes, clipped = parse_obb(source.read(str(labels[name])).decode())
             archive_counts.append(len(boxes))
+            clipped_annotations += clipped
             payload = source.read(str(path))
             code = signature(io.BytesIO(payload))
             if any((code ^ known).bit_count() <= 4 for known in reference):
@@ -112,6 +115,7 @@ def main():
                 "split_sha256": sha(split), "archive_sha256": sha(archive), "archive_file": archive.name,
                 "annotation_file": ANNOTATION, "image_prefix": PREFIX, "images": len(images),
                 "source_images": len(photos), "source_boxes": sum(archive_counts), "heads": sum(counts),
+                "clipped_source_boxes": clipped_annotations,
                 "sessions": dict(dates), "original_resolutions": dict(by_resolution),
                 "exclusions": dict(exclusions), "head_count_min_median_max": [min(counts), median(counts), max(counts)],
                 "small_heads": sum(area < .002 for area in areas), "median_box_area_fraction": median(areas)}
