@@ -25,6 +25,7 @@ ANNOTATION = "sd-rwhd-boxes.json"
 def parse_obb(text):
     boxes = []
     clipped_count = 0
+    outside_count = 0
     for line in text.splitlines():
         if not line.strip():
             continue
@@ -34,12 +35,15 @@ def parse_obb(text):
             raise ValueError(f"Expected one wheat class and four normalized vertices: {line}")
         xs, ys = points[::2], points[1::2]
         bounds = min(xs), min(ys), max(xs), max(ys)
+        if bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
+            raise ValueError("Degenerate source annotation.")
         box = tuple(min(max(value, 0.0), 1.0) for value in bounds)
         if box[2] <= box[0] or box[3] <= box[1]:
-            raise ValueError("Empty annotation after converting from an oriented box.")
+            outside_count += 1
+            continue
         boxes.append(box)
         clipped_count += box != bounds
-    return boxes, clipped_count
+    return boxes, clipped_count, outside_count
 
 
 def main():
@@ -71,14 +75,18 @@ def main():
             raise ValueError("Expected 159 one-to-one SD-RWHD image and label pairs.")
         archive_counts = []
         clipped_annotations = 0
+        outside_annotations = 0
         for name, path in sorted(photos.items()):
             match = re.fullmatch(r"(\d+)_.+_(2023-\d{2}-\d{2})-\d{2}-\d{2}-\d{2}", name)
             if match is None:
                 raise ValueError(f"Missing acquisition date or plot ID: {name}")
             plot, day = match.groups()
-            boxes, clipped = parse_obb(source.read(str(labels[name])).decode())
-            archive_counts.append(len(boxes))
+            boxes, clipped, outside = parse_obb(source.read(str(labels[name])).decode())
+            if not boxes:
+                raise ValueError("Expected at least one visible head per SD-RWHD image.")
+            archive_counts.append(len(boxes) + outside)
             clipped_annotations += clipped
+            outside_annotations += outside
             payload = source.read(str(path))
             code = signature(io.BytesIO(payload))
             if any((code ^ known).bit_count() <= 4 for known in reference):
@@ -116,6 +124,7 @@ def main():
                 "annotation_file": ANNOTATION, "image_prefix": PREFIX, "images": len(images),
                 "source_images": len(photos), "source_boxes": sum(archive_counts), "heads": sum(counts),
                 "clipped_source_boxes": clipped_annotations,
+                "outside_source_boxes": outside_annotations,
                 "sessions": dict(dates), "original_resolutions": dict(by_resolution),
                 "exclusions": dict(exclusions), "head_count_min_median_max": [min(counts), median(counts), max(counts)],
                 "small_heads": sum(area < .002 for area in areas), "median_box_area_fraction": median(areas)}
