@@ -1,7 +1,7 @@
 {
   "detector": "efficientdet-d2",
   "image_size": 768,
-  "run_label": "effdet-d2-6e-768-epoch-score",
+  "run_label": "effdet-d2-6e-768-field385",
   "epochs": 6,
   "batch_size": 4,
   "learning_rate": 0.0001,
@@ -12,5 +12,5 @@
   "validation_loss": true,
   "confidence": 0.3,
   "nms": 0.5,
-  "use_training_supplement": false
+  "use_training_supplement": true
 }
