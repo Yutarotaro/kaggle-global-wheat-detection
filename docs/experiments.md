@@ -377,6 +377,20 @@ Private 0.5719、固定検証 0.598597、独立確認 0.564296。
 [クロップ学習Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-train-d2-6e-768-gwhd385-zoom50-15f7318debe9) ·
 [クロップ学習Run](http://localhost:5050/#/experiments/1/runs/c5de427c057d4daaaaded3698e13bca8)
 
+6 epochの学習は完了した。最後のepochは0.574355で、最良は4 epochの
+**0.584042**。固定評価のGPUとライブラリの版は比較元と一致した。
+
+| 検出器単体・全体画像で推論 | 全体画像で学習 | 拡大クロップも使って学習 |
+| --- | ---: | ---: |
+| 固定検証 | 0.547748 | 0.584042 |
+| `arvalis_2` | 0.292062 | 0.377470 |
+| `rres_1` | 0.668488 | 0.681590 |
+| 小さい穂の再現率（IoU 0.50） | 30.51% | 22.05% |
+| 誤検出（重複を除く、IoU 0.50） | 4,376 | 3,751 |
+
+クロップ学習の重みをタイル推論でも評価する。学習の打ち切り時期を見る別の比較は、
+元のKaggle学習画像だけで12 epochまで実行する `loop.efficientdet-zoomcrop-long.toml`。
+
 学習投入はNotebookラベルの上限で一度、続いてKaggle APIのHTTP 400で一度失敗した。
 後者はNotebook名とVersion 1の両方でHTTP 404を確認して失敗として記録した。
 学習に関係しないフォルダを除外し、約660 KiBのNotebookで実行を確認した。
@@ -396,8 +410,11 @@ Private 0.5719、固定検証 0.598597、独立確認 0.564296。
 
 元のKaggle学習画像だけで再学習したD2を3台目に加えた条件は、
 固定検証 **0.602975**（`arvalis_2` 0.373280、`rres_1` 0.711442）。
-この候補を固定して独立確認に進めた。
-[固定検証Run](http://localhost:5050/#/experiments/1/runs/418c554fa8c64cfdad5f34c96a7ddc09)
+独立確認は **0.573011**（比較元0.564296）で採用条件を満たした。
+提出IDは `58377134`、Notebook v1、commit `2edc4ff`。
+[固定検証Run](http://localhost:5050/#/experiments/1/runs/418c554fa8c64cfdad5f34c96a7ddc09) ·
+[独立確認Run](http://localhost:5050/#/experiments/1/runs/3384cb1f9ce04c13af3761fc553569c3) ·
+[提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-mbv3-d2x2-hflip)
 
 ### 背景クロップを混ぜる学習
 
@@ -408,6 +425,12 @@ Private 0.5719、固定検証 0.598597、独立確認 0.564296。
 SPIKEの公開負例10枚で1枚あたりの誤検出数を比較する。
 合計3,006更新で比較し、epoch別の背景サンプル数もMLflowに記録する。
 再現コマンドの設定は `loop.efficientdet-background.toml`、実装は `fc8eba2`。
+負例ありの学習は `07254a28cd6840e2-0001`、実行時commitは `2edc4ff`。
+SPIKEの負例10枚では、confidence 0.30で比較元の全体画像学習は平均0.5誤検出/枚、
+拡大クロップ学習は平均1.6誤検出/枚だった。0.40では両方とも平均0.1誤検出/枚。
+この10枚は補助評価で、固定検証やKaggle Privateのスコアと合算しない。
+[負例学習Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-train-d2-6e-768-zoom50-neg05-16980987f167) ·
+[負例学習Run](http://localhost:5050/#/experiments/1/runs/5791cb511460484d9521f4e1321cb426)
 
 実験を始めたら、以下を記録する。
 

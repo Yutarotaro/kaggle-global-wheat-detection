@@ -156,6 +156,29 @@ flowchart TB
 - [水平反転TTAの提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-d2-mbv3-hflip-tta) · [MLflow提出Run](http://localhost:5050/#/experiments/1/runs/75cbb24154074b9babdcfadec82cdb73)
 - MLflowの推論Runの親は表示用に1件を選ぶ。アンサンブルで使った全学習RunはDescriptionと `model_input_run_ids` で確認できる。
 
+## 拡大クロップと背景を使う検出器学習
+
+```mermaid
+%%{init: {"htmlLabels": false, "flowchart": {"padding": 24, "nodeSpacing": 28}}}%%
+flowchart TB
+    M["Faster R-CNN MBv3<br/>既存の全体画像モデル<br/>固定検証 0.512961<br/>base 14f596b"]
+    D["D2 · 元データのみ<br/>最良epochを保存<br/>固定検証 0.539742<br/>commit 83c9c31"]
+    F["D2 · 追加385枚<br/>撮影元を増やす<br/>固定検証 0.547748<br/>commit 77083de"]
+    C["D2 · 拡大クロップ50%<br/>画角を変えて学習<br/>固定検証 0.584042<br/>commit aa2cb62"]
+    N["D2 · 背景クロップ5%<br/>誤検出の低下を比較<br/>学習中<br/>commit 2edc4ff"]
+    S["3モデルの反転TTA<br/>固定検証 0.602975<br/>独立確認 0.573011<br/>提出 58377134 · v1<br/>commit 2edc4ff"]
+    T["RT-DETRv2-R18<br/>直接枠を予測する方式<br/>設定 commit fcdb053"]
+    R["Faster R-CNN R50 v2<br/>FPNと特徴抽出器を比較<br/>設定 commit 3d95a8b"]
+    L["D2 · 12 epoch<br/>元データで長さを比較<br/>設定 commit 9b3277c"]
+
+    D --> F --> C --> N
+    D --> S
+    M --> S
+    D --> T
+    D --> L
+    M --> R
+```
+
 <details>
 <summary>初期試行のIDと凍結ソースハッシュ</summary>
 
