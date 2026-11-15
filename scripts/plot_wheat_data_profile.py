@@ -95,8 +95,8 @@ def plot_brightness(profile, output):
 def plot_small_head_sources(rows, output):
     labels = [row["label"] for row in rows]
     shares = [row["small_heads"] / row["heads"] for row in rows]
-    fig, ax = make_axis("画像面積の0.2%未満の穂", labels, "正解枠に占める割合", 2.4)
-    bars = ax.barh(range(len(rows)), shares, height=0.52, color=["#3159a9", "#627caa", "#a85429"])
+    fig, ax = make_axis("画像面積の0.2%未満の穂", labels, "正解枠に占める割合", 2.8)
+    bars = ax.barh(range(len(rows)), shares, height=0.52, color=["#3159a9", "#627caa", "#a85429", "#587364"])
     ax.bar_label(bars, labels=[f"{share:.1%}" for share in shares], padding=7, color=FOREGROUND)
     ax.set_xlim(0, 0.75)
     ax.xaxis.set_major_locator(MultipleLocator(0.15))

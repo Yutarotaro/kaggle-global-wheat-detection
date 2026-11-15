@@ -162,13 +162,14 @@ Kaggleの非公開採点画像との照合は未実施。
 
 ## 追加データと背景サンプルの監査
 
-![3つの学習データ候補で、画像面積の0.2%未満の穂が占める割合を比較。](figures/wheat-data-additional-small-heads.png)
+![学習データと追加候補で、画像面積の0.2%未満の穂が占める割合を比較。](figures/wheat-data-additional-small-heads.png)
 
 | データ | 画像 | 正解枠 | 小さい穂の正解枠 | 注釈なしの画像 |
 | --- | ---: | ---: | ---: | ---: |
 | Kaggle固定学習 | 2,002 | 103,012 | 8,861（8.6%） | 0 |
 | 監査済みGWHD 2021の追加分 | 385 | 21,720 | 5,228（24.1%） | 4（配布元の `no_box`） |
 | 監査済みSD-RWHD | 159 | 18,787 | 11,516（61.3%） | 0 |
+| 監査済みSPIKE `Spike_*` | 290 | 20,267 | 4,405（21.7%） | 0 |
 
 SD-RWHDは2023年6月に撮影された南ダコタの圃場データ。論文の全体は203画像、
 配布ZIPの対応する画像と注釈は159組だった。四頂点から外接枠へ変換し、
@@ -183,7 +184,7 @@ Kaggleのローカル学習・検証・確認画像と公開サンプル画像�
 
 | その他の公開データ | 確認結果 |
 | --- | --- |
-| SPIKE（2018） | 著者のZIPは画像355枚。ファイル上はpositive 315枚、test 30枚、negative 10枚。負例は葉や土の画像で、背景誤検出を測る補助評価に使う。 |
+| SPIKE（2018） | 著者のZIPは画像355枚。ファイル上はpositive 315枚、test 30枚、negative 10枚。2017年撮影として確認できる学習画像から290枚の候補を用意した。負例10枚は背景誤検出の補助評価に使う。 |
 | WEDD（2019） | 作者がGWHDに統合済みと明記している。独立した追加画像としては扱わない。 |
 | GWFSS（2025） | ラベル付き1,096枚がCC BY 4.0で公開。穂・葉・茎などのセマンティックマスクで、重なった穂の個別枠には追加処理が必要。 |
 | BioS-Wheat（2025） | 論文では枠注釈付き5,696枚。掲載時点の記載はZenodoに公開予定で、対応する配布ZIPは確認できていない。 |
@@ -193,6 +194,13 @@ Kaggleのローカル学習・検証・確認画像と公開サンプル画像�
 [WEDD作者の配布ページ](https://github.com/simonMadec/Wheat-Ears-Detection-Dataset) ·
 [GWFSSデータカード](https://huggingface.co/datasets/GlobalWheat/GWFSS_v1.0) ·
 [BioS-Wheat論文](https://www.nature.com/articles/s41598-025-28351-5)
+
+SPIKEの `positive/Spike_*.jpg` 302枚は、南オーストラリア州Mallalaで2017年に
+斜め方向から撮影された既存シリーズ。別名の `Exp1_*` 13枚を対象から外した。
+配布TSVは座標が範囲に収まることを確認してxyxyの枠へ読み込み、画像端の19枠を切り取った。
+他のSPIKE画像40枚との64ビット差分ハッシュの距離が4以下だった12枚を除き、
+Kaggleローカル画像との近似重複は確認されなかった。元の2018年公開分で、
+利用条件と大会フォーラムでの告知は別途確認する。
 
 Kaggleの固定学習2,002枚に、seed 42で拡大クロップを1回適用した。
 切り出した1,020枚には穂の注釈がゼロの画像がなかった。
@@ -209,12 +217,15 @@ Kaggleの固定学習2,002枚に、seed 42で拡大クロップを1回適用し�
 ```bash
 uv run --no-sync python scripts/prepare_sd_rwhd.py \
   data/sd-rwhd/1_SD-RWHD.zip --output data/sd-rwhd/prepared
+uv run --no-sync python scripts/prepare_spike_wheat.py \
+  data/spike/SPIKE_dataset.zip --output data/spike/prepared
 uv run --no-sync python scripts/prepare_wheat_backgrounds.py \
   --output data/prepared/background-crops.json
 ```
 
 SD-RWHDの配布ZIPのMD5は `e91153c30b4eb641a1b78923908b0b6b`。
 変換済みアーカイブのSHA-256は `44f36d29bf481040dd03d41ac519320a1fb263b5d6608d5ca0d7045cbc666110`。
+SPIKE変換済みアーカイブのSHA-256は `be55ca9c9e269aa74394adaa55e0566d2fa83a1f79876003771300ef81a5c1e5`。
 背景クロップの座標マニフェストのSHA-256は `9e6b55056f61ecc6ea70f2b7b5ef603b89c177c1ce7564cd96629962abe9a651`。
 
 ## 再集計
