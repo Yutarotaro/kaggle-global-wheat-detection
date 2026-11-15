@@ -34,6 +34,24 @@ def prediction_string(predictions, width, height):
     return " ".join(tokens)
 
 
+def predict_views(model, tensor, flips, iou):
+    height, width = tensor.shape[-2:]
+    predictions = []
+    for view in ("original", *flips):
+        if view == "original":
+            result = model([tensor])[0]
+            boxes = result["boxes"]
+        else:
+            dimension, extent = {"horizontal": (-1, width), "vertical": (-2, height)}[view]
+            result = model([tensor.flip(dims=(dimension,))])[0]
+            boxes = result["boxes"].clone()
+            columns = (0, 2) if view == "horizontal" else (1, 3)
+            boxes[:, columns] = extent - boxes[:, columns[::-1]]
+        predictions.append([[score, *box] for score, box in
+                            zip(result["scores"].tolist(), boxes.tolist(), strict=True)])
+    return fuse(predictions, width, height, [1] * len(predictions), iou) if flips else predictions[0]
+
+
 @torch.inference_mode()
 def predict(data_root, checkpoints, spec, output, device):
     if len(checkpoints) != len(spec["models"]):
@@ -46,6 +64,10 @@ def predict(data_root, checkpoints, spec, output, device):
         model.load_state_dict(torch.load(path, map_location=device, weights_only=True))
         models.append(model.eval())
     paths = {path.stem: path for path in (data_root / "test").glob("*.jpg")}
+    views = [conditions.get("tta_flips", spec.get("tta_flips", [])) for conditions in spec["models"]]
+    for flips in views:
+        if len(set(flips)) != len(flips) or set(flips) - {"horizontal", "vertical"}:
+            raise ValueError("Expected a unique list of horizontal or vertical TTA flips.")
     with (data_root / "sample_submission.csv").open(newline="") as handle:
         ids = [row["image_id"] for row in csv.DictReader(handle)]
     if not ids or len(ids) != len(paths) or set(ids) != paths.keys():
@@ -58,9 +80,8 @@ def predict(data_root, checkpoints, spec, output, device):
             with Image.open(paths[key]) as image:
                 width, height = image.size
                 tensor = pil_to_tensor(image.convert("RGB")).float().div_(255).to(device)
-            results = [model([tensor])[0] for model in models]
-            rows = [[[score, *box] for score, box in zip(result["scores"].tolist(), result["boxes"].tolist(),
-                                                          strict=True)] for result in results]
+            rows = [predict_views(model, tensor, flips, spec.get("tta_iou", 0.55))
+                    for model, flips in zip(models, views, strict=True)]
             if len(rows) == 1:
                 detections = rows[0]
             else:
