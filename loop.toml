@@ -10,6 +10,10 @@ evaluate_s = 300
 poll_s = 10
 editable = ["configs/baseline.json", "src/wheat/model.py", "src/wheat/preprocess.py", "src/wheat/train.py"]
 
+[selection]
+group_metric = "by_source"
+max_group_regression = 0.01
+
 [agent]
 type = "config-sweep"
 aggregate_only = true
@@ -19,7 +23,9 @@ path = "configs/baseline.json"
 type = "codex"
 aggregate_only = true
 research_brief = """
-Target 0.90 on the fixed validation competition metric. Use the reported score and recall by box size.
+Target 0.90 on the fixed validation competition metric. Use the reported score, change by acquisition source and recall by box size.
+Prioritize one error at a time: small-head misses, false positives on arvalis_2, or duplicate boxes in crowded images.
+For each proposal, name the error it targets and the aggregate metric expected to change. Reuse saved prediction evidence when available.
 The 640px MobileNetV3 baseline scored 0.44510 at 3 epochs and 0.51296 at 12 epochs. The 12-epoch validation loss was lowest at epoch 4.
 At 3 epochs background classification weight 1.25 improved by 0.00652. Adding box regression weight 1.20, positive classification weight 1.10, or a background weight warmup all worsened that parent. Avoid repeating those changes without a new hypothesis.
 Filtering the saved 12-epoch predictions at confidence 0.50 improved validation to 0.52579. This is exploratory validation evidence, not a holdout or leaderboard score.

@@ -28,6 +28,7 @@ from render_previews import render_previews
 
 COMPETITION = "global-wheat-detection"
 TERMINAL = {"succeeded": "FINISHED", "failed": "FAILED", "interrupted": "KILLED"}
+DECISION_LABELS = {"baseline": "基準", "accepted": "採用", "rejected": "不採用", "held": "保留", "unscored": "未評価"}
 NUMBER = r"\d+(?:\.\d+)?(?:[eE][+-]?\d+)?"
 LOSS = re.compile(rf"^Epoch ([1-9]\d*): loss ({NUMBER})(?: val_loss ({NUMBER}))?"
                   r"(?: optimizer_steps (\d+))?[ \t]*$", re.MULTILINE)
@@ -188,12 +189,23 @@ def sync(client, experiment_id, records, live):
                 if score is not None:
                     compare += f"。このRunは {score:.6f}（差 {score - parent_score:+.6f}）"
             compare += "。"
+        decision = trial.get("decision", {})
+        selection = ""
+        if decision:
+            selection = f"採否は{DECISION_LABELS[decision['status']]}。{decision['reason']} {decision['next_action']}"
+            selected_reference = decision.get("reference_id")
+            if selected_reference and selected_reference != reference:
+                reference_run = runs.get(selected_reference)
+                label = (f"[{reference_run.info.run_name}](#/experiments/{experiment_id}/runs/{reference_run.info.run_id})"
+                         if reference_run else f"`{selected_reference}`")
+                selection += f" 採否の比較基準は {label}。"
         description = "\n\n".join(part for part in (
             notebook_link,
             f"Kaggle GPU学習。{conditions}。",
             f"仮説: {hypothesis}" if hypothesis else "",
             f"変更: {trial['change']}" if trial.get("change") else "",
             compare,
+            selection,
             "検証: 撮影元で固定したvalidation。評価基準: Wheat Image Precision。",
         ) if part)
 
@@ -209,6 +221,11 @@ def sync(client, experiment_id, records, live):
         }
         if reference:
             tags["comparison_trial_id"] = reference
+        if decision:
+            tags["selection_status"] = decision["status"]
+            tags["selection_reason"] = decision["reason"]
+            if decision.get("reference_id"):
+                tags["selection_reference_trial_id"] = decision["reference_id"]
         if trial.get("git_commit") or not session.get("working_tree", False):
             tags["git_commit"] = trial.get("git_commit") or session["head"]
             tags["git_commit_scope"] = "trial" if trial.get("git_commit") or trial["number"] == 1 else "session_base"
@@ -252,8 +269,8 @@ def sync(client, experiment_id, records, live):
 def write_journal(state, records):
     by_id = {trial["id"]: trial for _, _, trial, _ in records}
     lines = ["# 小麦検出の実験履歴", "", "Loopの記録から自動生成。スコアは固定検証。", "",
-             "| 試行 | 比較元 | 仮説 | 変更 | 結果 | 親との差 |",
-             "| --- | --- | --- | --- | --- | --- |"]
+             "| 試行 | 比較元 | 仮説 | 変更 | 結果 | 親との差 | 採否 | 理由 | 次の一手 |",
+             "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
     for _, session, trial, _ in records:
         reference = session["spec"].get("baseline_reference") if trial["number"] == 1 else None
         hypothesis = session["spec"].get("baseline_hypothesis", trial.get("hypothesis", "")) if reference else trial.get("hypothesis", "")
@@ -263,7 +280,15 @@ def write_journal(state, records):
         result = format(score, ".6f") if score is not None else trial["status"]
         delta = f"{score - parent_score:+.6f}" if score is not None and parent_score is not None else "—"
         label = f"{reference}（参考）" if reference else parent_id or "基準"
-        cells = (trial["id"], label, hypothesis, trial.get("change", ""), result, delta)
+        decision = trial.get("decision", {})
+        outcome = DECISION_LABELS.get(decision.get("status"), "—")
+        if decision.get("reference_id"):
+            outcome += f"（基準 {decision['reference_id']}）"
+        reason = decision.get("reason", "")
+        if trial["status"] in {"failed", "interrupted"} and trial.get("detail"):
+            reason = trial["detail"]
+        cells = (trial["id"], label, hypothesis, trial.get("change", ""), result, delta,
+                 outcome, reason, decision.get("next_action", ""))
         lines.append("| " + " | ".join(cell.replace("|", "\\|").replace("\n", " ") for cell in cells) + " |")
     path = state / "experiments.md"
     content = "\n".join(lines) + "\n"

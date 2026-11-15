@@ -10,6 +10,10 @@ evaluate_s = 300
 poll_s = 10
 editable = ["configs/efficientdet.json"]
 
+[selection]
+group_metric = "by_source"
+max_group_regression = 0.01
+
 [agent]
 type = "config-sweep"
 aggregate_only = true
