@@ -1,0 +1,21 @@
+{
+  "trial_id": "1d692cda0f6e4cd2-0002",
+  "notebook": "yutarotaro/wheat-train-effdet-d2-6e-768-field385-617aff0119ac/1",
+  "sha256": "34306b932c2b5bee670e96799317911bafde508ac65f626edbebc8e3bdaf4331",
+  "config": {
+    "detector": "efficientdet-d2",
+    "image_size": 768,
+    "run_label": "effdet-d2-6e-768-field385",
+    "epochs": 6,
+    "batch_size": 4,
+    "learning_rate": 0.0001,
+    "horizontal_flip": 0.5,
+    "vertical_flip": 0,
+    "color_jitter": 0,
+    "mosaic": 0,
+    "validation_loss": true,
+    "confidence": 0.3,
+    "nms": 0.5,
+    "use_training_supplement": true
+  }
+}
