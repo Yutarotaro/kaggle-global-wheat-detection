@@ -419,6 +419,10 @@ Private 0.5719、固定検証 0.598597、独立確認 0.564296。
 [提出Run](http://localhost:5050/#/experiments/1/runs/abd70768fcfa449f91d4c73795715021) ·
 [提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-mbv3-d2x2-hflip)
 
+現行の3モデルに同じD2重みの1,024px推論を加え、768pxの反転TTAと2:1のWBFで
+統合した。固定検証は **0.595007**、`arvalis_2` は0.353744。比較元の0.602975と
+0.373280を下回り、独立確認へ進めなかった（commit `213da15`）。
+
 拡大クロップで学習したD2を既存D2と入れ替え、反転TTAで固定検証
 **0.620481**（`arvalis_2` 0.427797、`rres_1` 0.711471）。
 3台目として足したときは0.615699。入れ替えを固定した独立確認は

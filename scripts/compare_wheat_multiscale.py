@@ -87,6 +87,7 @@ def main():
     eligible = (result["score"] > baseline["score"] and all(
         result["by_source"][group] >= original - 0.01 for group, original in baseline["by_source"].items()))
     report = {"partition": partition, "eligible": eligible, "spec": spec, "baseline": baseline,
+              "reference_submission": 58377134,
               "result": result, "candidate_trial": condition["trial_id"],
               "split_sha256": sha(SPLIT), "git_commit": commit}
     write(RESULTS / f"{partition}.json", report)

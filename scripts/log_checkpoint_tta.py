@@ -28,6 +28,7 @@ def main():
         conditions = next(model["config"] for model in models if model["trial_id"] == candidate)
         name = f"infer/tta-{variant}-{conditions['run_label']}/{candidate}"
         partition = report["partition"]
+        reference = report.get("reference_submission", 58374318)
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         matches = client.search_runs([experiment], f"tags.comparison_spec_sha256 = '{digest}'")
         if matches and matches[0].info.status == "FINISHED":
@@ -39,7 +40,7 @@ def main():
         links = "\n".join(f"- [{run.info.run_name}](#/experiments/{experiment}/runs/{run.info.run_id})"
                           for run in parents.values())
         description = (
-            f"提出58374318の反転TTAで、学習した新しい重みを比較した。"
+            f"提出{reference}を基準に推論条件を比較した。"
             f"方法は {variant}、評価分割は {partition}、WBF重みは {spec['weights']}。"
             f"\n\n{links}"
         )
