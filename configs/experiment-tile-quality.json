@@ -1,0 +1,15 @@
+{
+  "baseline": "configs/submission-d2-mbv3-wbf045-d2x2.json",
+  "tiles": {
+    "model_index": 1,
+    "window_fraction": 0.65,
+    "seam_margin": 0.02,
+    "max_area": 0.008,
+    "iou": 0.5,
+    "rescue_iou": 0.3,
+    "rescue_confidence": 0.5
+  },
+  "quality_nms_iou": 0.45,
+  "quality_cutoffs": [0.22, 0.29, 0.36],
+  "source_guard": 0.01
+}

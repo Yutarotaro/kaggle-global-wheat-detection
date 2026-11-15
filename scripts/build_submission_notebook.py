@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[1]
-MODULES = ("data", "metric", "fusion", "model", "submission")
+MODULES = ("data", "metric", "fusion", "model", "proposals", "submission")
 
 
 def build(spec, destination):
