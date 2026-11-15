@@ -412,9 +412,15 @@ Private 0.5719、固定検証 0.598597、独立確認 0.564296。
 固定検証 **0.602975**（`arvalis_2` 0.373280、`rres_1` 0.711442）。
 独立確認は **0.573011**（比較元0.564296）で採用条件を満たした。
 提出IDは `58377134`、Notebook v1、commit `2edc4ff`。
+採点済みの **Public 0.6867 / Private 0.5787** は、前回から0.0095 / 0.0068の改善。
 [固定検証Run](http://localhost:5050/#/experiments/1/runs/418c554fa8c64cfdad5f34c96a7ddc09) ·
 [独立確認Run](http://localhost:5050/#/experiments/1/runs/3384cb1f9ce04c13af3761fc553569c3) ·
+[提出Run](http://localhost:5050/#/experiments/1/runs/abd70768fcfa449f91d4c73795715021) ·
 [提出Notebook](https://www.kaggle.com/code/yutarotaro/wheat-infer-mbv3-d2x2-hflip)
+
+拡大クロップで学習したD2を既存D2と入れ替え、反転TTAで固定検証
+**0.620481**（`arvalis_2` 0.427797、`rres_1` 0.711471）。
+3台目として足したときは0.615699。入れ替えを固定して独立確認に進めた。
 
 ### 背景クロップを混ぜる学習
 
