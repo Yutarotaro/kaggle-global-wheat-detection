@@ -12,9 +12,24 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "src/wheat"))
 from data import load_dataset, sha, split_dataset
 from evaluate import evaluate
 from metric import image_score, match
+from model import create_model
 from preprocess import mosaic, zoom_crop
 from render_previews import render_previews
 from train import BackgroundSampler, load_backgrounds
+
+
+def test_d4_can_hold_only_pretrained_backbone_norm_statistics_fixed():
+    config = {"detector": "efficientdet-d4", "image_size": 256, "confidence": .30, "nms": .50,
+              "freeze_backbone_bn": True}
+    model = create_model(config, pretrained=False)
+    backbone = model.loss_bench.model.backbone
+    backbone_norms = [layer for layer in backbone.modules() if isinstance(layer, torch.nn.BatchNorm2d)]
+    detector_norms = [layer for layer in model.modules() if isinstance(layer, torch.nn.BatchNorm2d)
+                      and layer not in backbone_norms]
+    assert backbone_norms and detector_norms
+    model.eval().train()
+    assert all(not layer.training and layer.weight.requires_grad for layer in backbone_norms)
+    assert all(layer.training for layer in detector_norms)
 
 
 def test_mosaic_clips_and_translates_boxes(monkeypatch):

@@ -44,6 +44,7 @@ class EfficientWheat(nn.Module):
 
         self.size = config["image_size"]
         self.confidence = config["confidence"]
+        self.freeze_backbone_bn = config.get("freeze_backbone_bn", False)
         if config["nms"] != 0.5:
             raise ValueError("EfficientDet uses NMS at IoU 0.50.")
         if self.size % 128:
@@ -53,6 +54,15 @@ class EfficientWheat(nn.Module):
                                max_det_per_image=300)
         self.loss_bench = DetBenchTrain(network)
         self.predict_bench = DetBenchPredict(network)
+        self.train()
+
+    def train(self, mode=True):
+        super().train(mode)
+        if mode and self.freeze_backbone_bn:
+            for layer in self.loss_bench.model.backbone.modules():
+                if isinstance(layer, nn.BatchNorm2d):
+                    layer.training = False
+        return self
 
     def forward(self, images, labels=None):
         shapes = [image.shape[-2:] for image in images]

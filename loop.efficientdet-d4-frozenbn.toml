@@ -1,0 +1,42 @@
+seed = 42
+require_trial_commits = true
+baseline_reference = "71e04a45512846e2-0001"
+baseline_hypothesis = "元のD4は2・3 epoch目で0.089448と0.024386に低下した。学習率、AMP、データ、バッチ、乱数シードをそろえ、事前学習済みバックボーンのBatchNorm統計だけを固定して最初の3 epochを比較する。"
+runtime_s = 5400
+agent_s = 600
+smoke_s = 240
+evaluate_s = 300
+poll_s = 15
+editable = ["configs/efficientdet-d4-1024-frozenbn.json"]
+
+[selection]
+group_metric = "by_source"
+max_group_regression = 0.01
+
+[agent]
+type = "config-sweep"
+aggregate_only = true
+path = "configs/efficientdet-d4-1024-frozenbn.json"
+variants = []
+
+[executor]
+type = "kaggle"
+owner = "yutarotaro"
+binary = ".venv/bin/kaggle"
+competition = "global-wheat-detection"
+notebook_prefix = "wheat-train"
+notebook_label_file = "configs/efficientdet-d4-1024-frozenbn.json"
+notebook_exclude_dirs = ["docs", "notebooks", "scripts", "tests", ".github"]
+accelerator = "NvidiaTeslaT4"
+internet = true
+
+[task]
+type = "command"
+interpreter = ".venv/bin/python"
+metric = "wheat_image_precision"
+direction = "max"
+train = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-d4-1024-frozenbn.json", "--background-crops", "data/prepared/background-crops.json", "--epoch-previews", "--epoch-scores"]
+smoke = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-d4-1024-frozenbn.json", "--background-crops", "data/prepared/background-crops.json", "--smoke"]
+evaluate = ["python", "src/wheat/evaluate.py"]
+dataset_manifest = "data/prepared/split.json"
+remote_inputs = ["data/prepared/split.json", "data/prepared/background-crops.json"]

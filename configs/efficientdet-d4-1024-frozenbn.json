@@ -1,0 +1,20 @@
+{
+  "detector": "efficientdet-d4",
+  "image_size": 1024,
+  "run_label": "d4-3e-1024-frozenbn",
+  "epochs": 3,
+  "batch_size": 2,
+  "learning_rate": 7.5e-05,
+  "horizontal_flip": 0.5,
+  "vertical_flip": 0,
+  "color_jitter": 0,
+  "mosaic": 0,
+  "zoom_crop_probability": 0.5,
+  "background_fraction": 0.05,
+  "validation_loss": true,
+  "confidence": 0.3,
+  "nms": 0.5,
+  "use_training_supplement": false,
+  "amp": true,
+  "freeze_backbone_bn": true
+}
