@@ -235,6 +235,26 @@ SD-RWHDの配布ZIPのMD5は `e91153c30b4eb641a1b78923908b0b6b`。
 SPIKE変換済みアーカイブのSHA-256は `be55ca9c9e269aa74394adaa55e0566d2fa83a1f79876003771300ef81a5c1e5`。
 背景クロップの座標マニフェストのSHA-256は `9e6b55056f61ecc6ea70f2b7b5ef603b89c177c1ce7564cd96629962abe9a651`。
 
+## 拡大・縮小後の学習用の穂の大きさ
+
+固定学習分割から `ba8e0be` のseed 42で最初の1 epoch分のサンプラー、横反転、
+拡大クロップと縮小合成に使う座標を再現した。各条件とも、2,002入力のうち1,902入力が
+正例、100入力が背景クロップ。縮小ありでは正例から963枚を拡大し、470枚を縮小し、469枚を全体のまま使う。
+同じ出力画像内の正解枠の面積を画像面積で割り、0.2%未満を小さい穂として数えた。
+
+| 学習撮影元 | 正例入力 | 正解枠数 | 小さい穂・拡大と背景負例 | 小さい穂・縮小も使用 |
+| --- | ---: | ---: | ---: | ---: |
+| `arvalis_1` | 1,003 | 33,056 | 947 | 2,714 |
+| `ethz_1` | 713 | 36,957 | 3,431 | 7,037 |
+| `usask_1` | 186 | 3,966 | 65 | 138 |
+| 合計 | 1,902 | 73,979 | 4,443（6.01%） | 9,889（13.37%） |
+
+対応する設定は [`efficientdet-zoomcrop-long.json`](../configs/efficientdet-zoomcrop-long.json) と
+[`efficientdet-d2-zoomout.json`](../configs/efficientdet-d2-zoomout.json)。再集計は `src/wheat/train.py` の
+`Images` と `BackgroundSampler` をこの2設定でseed 42から初期化し、最初の1 epochを順に走査する。
+画像は分割の `train`、背景は `data/prepared/background-crops.json` を使う。
+増えた枠は既存画像の縮小から作られ、撮影元の種類と正解枠の総数は同じ。
+
 ## 再集計
 
 ```bash
