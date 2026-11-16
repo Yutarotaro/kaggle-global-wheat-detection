@@ -5,4 +5,5 @@
 - 提出条件、学習Run、Notebookの版、提出ID、Public・Privateスコアを記録する。提出スコアは候補選択に使わない。
 - データ分析・前処理・サンプリングの結果も、対象分割、集計条件、比較結果、再現手順を `docs/` に記録する。GitHubには集計値を残す。
 - Kaggle NotebookとMLflow Runは学習と提出推論を分け、名前とDescriptionに実験条件を記録する。
-- 実験はコミット済みのcleanな作業ツリーから始める。改善候補のソースも実行前にコミットし、MLflowの `git_commit` タグに記録する。
+- 実験はコミット済みのcleanな作業ツリーから始める。学習に使うソースと設定のコミットを投入前にGitHubへpushし、MLflowの `git_commit` タグに記録する。同じコミットからの複数実行はRun IDと設定で区別する。
+- 投入前に仮説・比較元のRunまたは提出ID・採用条件を記録する。評価後は、撮影元別の結果・採否の根拠・次に検証する仮説を `docs/experiments.md` とMLflowから追えるようにし、関連する `docs/experiment-lineage.md` も更新してpushする。

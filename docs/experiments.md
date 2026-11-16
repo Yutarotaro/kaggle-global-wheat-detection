@@ -482,22 +482,51 @@ Kaggleの元データだけを使い8 epoch実行した（`66b8fdb7d8944873-0001
 （`3f96d2f258b746a8-0001`、commit `34c041d`）。
 最良は1 epochの **0.509187**（`arvalis_2` 0.243283、`rres_1` 0.634752）。
 6 epochは0.393081。MobileNetV3の基準0.512961を単体では超えなかった。
-最良の重みを固定し、現行アンサンブルと同じ反転TTAで補完効果を比較する。
+最良の重みを固定し、現行提出 `58377134` の3モデルに重み0.15で加えた（比較commit `0674326`）。
+固定検証は0.602975から **0.604552**、独立確認は0.573011から **0.580625** に上がった。
+独立確認の `inrae_1` は0.648325から0.637998へ0.010327低下し、
+撮影元別の許容低下0.01を超えたため見送った。
 [学習Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-train-frcnn-r50v2-6e-768-7a33d05b8ce3) ·
-[学習Run](http://localhost:5050/#/experiments/1/runs/8ea32efd4dda4dc383df4a01de343034)
+[学習Run](http://localhost:5050/#/experiments/1/runs/8ea32efd4dda4dc383df4a01de343034) ·
+[固定検証Run](http://localhost:5050/#/experiments/1/runs/241cd601149242ecb1f16f8c4d8d567d) ·
+[独立確認Run](http://localhost:5050/#/experiments/1/runs/c3d1bd3642e742bc8949c7a2c0f8e2b8)
 
 ### Kaggle元データでの12 epoch学習
 
-`06873b044c414c79-0001` を投入した（Notebook v1、commit `03707df`）。
-比較用の固定分割と乱数シード42を使い、12 epoch、6,012更新、拡大クロップ50%、
-各epochに背景100枚の条件で学習する。学習済み重みは同じ反転TTAで固定検証し、
-現行の提出 `58377134` を上回った候補を凍結して独立確認に進む。
-[学習Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-train-d2-12e-768-zoom50-neg05-945c1bce2c8d)
+元データ2,002枚だけで、拡大クロップ50%と毎epochの背景100枚を使ったD2を
+12 epoch、6,012更新まで学習した（`06873b044c414c79-0001`、Notebook v1、commit `03707df`）。
+元データ6 epochのD2 `1d692cda0f6e4cd2-0001` の最良固定検証は0.539742。
+今回の6 epochは0.596102、最良は9 epochの **0.616477**、最終は0.612625だった。
+同一学習の6 epoch以降にも改善があり、12 epochまで回して最良重みを選ぶ判断につながった。
+元データ6 epochのD2との間では、学習回数に加えてクロップと負例も変わっている。
+[学習Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-train-d2-12e-768-zoom50-neg05-945c1bce2c8d) ·
+[学習Run](http://localhost:5050/#/experiments/1/runs/b3d63295ff284d2aa777c1b8b66148f3)
 
-別の候補として、1,024pxの解像度で学習するEfficientDet-D4を用意した。
-Kaggle元データ、拡大クロップ50%、背景5%を使い、より深いBiFPNと
-入力解像度を合わせた学習の効果を調べる。ローカルの学習・推論smokeを確認済み。
-実行設定は `loop.efficientdet-d4.toml`。
+反転TTAとWBFを維持したうえで、現行提出 `58377134` を採否の基準にした。
+候補の構成と重みは固定検証636枚で比較し、選んだ1構成を独立確認735枚で評価した（比較commit `0674326`）。
+
+| 構成 | 固定検証 | 独立確認 |
+| --- | ---: | ---: |
+| 現行の提出 `58377134` | 0.602975 | 0.573011 |
+| 以前の2モデルに新D2を追加 | 0.618171 | — |
+| 現行の3モデルに新D2を追加 | 0.613696 | — |
+| 以前の2モデルのD2を新D2に入れ替え | **0.628095** | **0.627904** |
+
+選んだ2モデル構成はFaster R-CNN MobileNetV3と新D2で、WBF重みは1:2。
+固定検証の `arvalis_2` は0.373280から0.445026、`rres_1` は0.711442から0.714544に上がった。
+独立確認の `arvalis_3` は0.549299から0.596251、`inrae_1` は0.648325から0.728439に上がった。
+採用条件を満たしたため、提出推論の設定とNotebookを `e891424` に固定した。
+KaggleでNotebook v1の出力10行を検証し、2026-11-16に `58428756` として提出した。採点待ち。
+[固定検証Run](http://localhost:5050/#/experiments/1/runs/0c651e069ef9407b9fcd80fa4d9ab0b5) ·
+[独立確認Run](http://localhost:5050/#/experiments/1/runs/94b31b90d3d84c1f99c9bc7b232eb601) ·
+[提出Run](http://localhost:5050/#/experiments/1/runs/1d00d294543a4a3d9c1f22baf34dc8a0) ·
+[提出推論Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-infer-d2-12e-neg05-06873b04)
+
+次の検出器候補は、Kaggle元データ、拡大クロップ50%、背景5%を使う1,024pxの
+EfficientDet-D4。D2で小さい穂の再現率が16.51%だったため、入力解像度を上げた状態で
+学習し、D2の6 epoch（0.596102）に対する小さい穂の再現率と固定検証の改善を調べる。
+D4はBiFPNの深さやバッチサイズも異なるため、結果はモデル構成全体の比較とする。
+ローカルの学習・推論smokeを確認済み。実行設定は `loop.efficientdet-d4.toml`。
 
 実験を始めたら、以下を記録する。
 

@@ -199,8 +199,14 @@ SPIKEの `positive/Spike_*.jpg` 302枚は、南オーストラリア州Mallala�
 斜め方向から撮影された既存シリーズ。別名の `Exp1_*` 13枚を対象から外した。
 配布TSVは座標が範囲に収まることを確認してxyxyの枠へ読み込み、画像端の19枠を切り取った。
 他のSPIKE画像40枚との64ビット差分ハッシュの距離が4以下だった12枚を除き、
-Kaggleローカル画像との近似重複は確認されなかった。元の2018年公開分で、
-2020年の9位チームも採用候補として試したと報告している。告知の時点は未確認。
+Kaggleローカル画像との近似重複は確認されなかった。元の2018年公開分は、2020年7月5日に
+コンペ公式フォーラムで共有され、7月28日の参加期限より前だった。Kaggle CLIの
+`kaggle forums topics show global-wheat-detection/164346 --format json` と
+Meta Kaggleの `ForumTopics.csv` で投稿日時を照合した。9位チームも利用を報告した。
+スレッドではラベルの欠落も指摘されている。学習に加える際は、未注釈の穂が背景として
+扱われる影響を考慮し、注釈の目視確認と同じ固定分割での比較を行う。
+[公式フォーラムの告知](https://www.kaggle.com/competitions/global-wheat-detection/discussion/164346) ·
+[Meta Kaggle](https://www.kaggle.com/datasets/kaggle/meta-kaggle) ·
 [9位チームの解法](https://www.kaggle.com/competitions/global-wheat-detection/discussion/172569)
 
 Kaggleの固定学習2,002枚に、seed 42で拡大クロップを1回適用した。
