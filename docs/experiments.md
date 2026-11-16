@@ -536,6 +536,35 @@ BiFPNの深さやバッチサイズも異なるので、モデルと学習条件
 [D4学習Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-train-d4-6e-1024-zoom50-neg05-6d3922b424ab) ·
 [D4学習Run](http://localhost:5050/#/experiments/1/runs/78168ed43a0543b396419a92abd97be8)
 
+### 異なる撮影条件での提出構成の比較
+
+提出 `58377134` と `58428756` の重み、TTA、WBF、confidenceを固定し、
+同じ提出推論コードをSPIKEの公開テスト30枚とSD-RWHDの159枚で実行した（commit `e92b3e6`）。
+SPIKEはオーストラリアの斜め撮影、SD-RWHDは米国の撮影で、後者は枠の面積が画像の0.2%未満の穂が61.3%を占める。
+公表された注釈を使った補助評価として、データセットごとに結果を集計した。
+
+| 公開データ | 測定項目 | 3モデル `58377134` | 新D2との2モデル `58428756` |
+| --- | --- | ---: | ---: |
+| SPIKE 30枚 | Wheat Image Precision | 0.064765 | 0.073638 |
+| SPIKE 30枚 | 一致した枠 / 予測枠、IoU 0.50 | 331 / 908 | 398 / 1,031 |
+| SD-RWHD 159枚 | Wheat Image Precision | 0.067430 | 0.045767 |
+| SD-RWHD 159枚 | 一致した枠 / 予測枠、IoU 0.50 | 1,954 / 3,831 | 1,424 / 2,776 |
+| SD-RWHD 159枚 | 小さい穂の検出数 / 注釈数、IoU 0.50 | 285 / 11,516 | 182 / 11,516 |
+
+新構成の影響は撮影条件で異なった。SD-RWHDでは予測枠と一致した枠がともに減り、
+検出できた小さい穂は2.47%から1.58%に低下した。D4は固定検証の撮影元別に加え、
+同じ公開データで小さい穂の再現率を比較する。
+SPIKEは穂の注釈漏れの指摘があるため、元の注釈での値として保存する。
+[MLflowの比較Runと撮影条件別集計](http://localhost:5050/#/experiments/1/runs/9a8aa3a67d65411994612b2fa937c0e4) ·
+[公開データの準備と監査](data-profile.md#追加データと背景サンプルの監査)
+
+```bash
+PYTORCH_ENABLE_MPS_FALLBACK=1 uv run --locked --group wheat --group detr --group dev --group kaggle \
+  --with ensemble-boxes==1.0.9 \
+  python scripts/compare_external_fields.py configs/submission-mbv3-d2x2-hflip.json \
+  configs/submission-d2-12e-neg05-06873b04.json --output outputs/model-search/external-fields.json
+```
+
 実験を始めたら、以下を記録する。
 
 | 項目 | 内容 |
