@@ -177,6 +177,7 @@ flowchart TB
     R15["R50を重み0.15で追加<br/>固定検証 0.604552<br/>独立確認 0.580625<br/>圃場別基準で見送り<br/>比較 commit 0674326"]
     L["D2 · 12 epoch<br/>元データでクロップと負例<br/>固定検証 0.616477 · epoch 9<br/>commit 03707df"]
     P["D2を入れ替えて反転TTA<br/>固定検証 0.628095<br/>独立確認 0.627904<br/>Public 0.6740<br/>Private 0.5657<br/>提出 58428756 · v1<br/>提出推論 commit e891424"]
+    D4["D4 · 1,024px · 6 epoch<br/>小さい穂の再現率を比較<br/>学習投入済み<br/>commit c66cca4"]
 
     D --> F --> C --> N
     C --> Z
@@ -194,6 +195,7 @@ flowchart TB
     L --> P
     M --> P
     S -. 比較 .-> P
+    L -. 比較 .-> D4
 ```
 
 <details>

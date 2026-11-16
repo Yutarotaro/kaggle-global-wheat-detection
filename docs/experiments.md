@@ -531,7 +531,10 @@ EfficientDet-D4。D2で小さい穂の再現率が16.51%だったため、入力
 学習して小さい穂の再現率と固定検証を比べる。D4の6 epochは6,006更新を予定し、
 D2の6 epoch（3,006更新、0.596102）と最終12 epoch（6,012更新、0.612625）を参照する。
 BiFPNの深さやバッチサイズも異なるので、モデルと学習条件を合わせた比較になる。
-ローカルの学習・推論smokeを確認済み。実行設定は `loop.efficientdet-d4.toml`。
+ローカルの学習・推論smokeの後、`71e04a45512846e2-0001` をKaggleに投入した（学習commit `c66cca4`）。
+実行設定は `loop.efficientdet-d4.toml`。
+[D4学習Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-train-d4-6e-1024-zoom50-neg05-6d3922b424ab) ·
+[D4学習Run](http://localhost:5050/#/experiments/1/runs/78168ed43a0543b396419a92abd97be8)
 
 実験を始めたら、以下を記録する。
 
