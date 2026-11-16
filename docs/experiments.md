@@ -590,6 +590,18 @@ D4の固定検証は1〜4 epochで0.582839、0.089448、0.024386、0.579102。
 [D4の学習履歴](http://localhost:5050/#/experiments/1/runs/78168ed43a0543b396419a92abd97be8) ·
 [EfficientDet原論文](https://openaccess.thecvf.com/content_CVPR_2020/papers/Tan_EfficientDet_Scalable_and_Efficient_Object_Detection_CVPR_2020_paper.pdf)
 
+元のD4は6 epochを完了し、別の評価プロセスで同じ固定検証636枚を採点した結果も、最良の6 epochで **0.594707** だった。
+`arvalis_2` は0.414744、`rres_1` は0.679690、小さい穂の再現率は12.12%。
+1 epoch目の18.70%より低く、5 epoch目の固定検証は0.026441だった。
+同じseedでサンプラーを再現すると、背景だけのバッチは最初の5 epochで2、5、2、1、1件だった。
+バッチの件数だけでは成績の崩れと対応しない。ログの `optimizer_steps` は処理したバッチの累計で、
+AMPが更新を省略した回数は計測していない。
+
+対照試行 `77baee4323ce4da0-0001` を投入した（Notebook v1、学習commit `4772447`）。
+バックボーンのBatchNorm統計を固定し、学習可能な重みと検出ヘッド側のBatchNormは通常どおり更新する。
+[対照試行の学習Notebook v1](https://www.kaggle.com/code/yutarotaro/wheat-train-d4-3e-1024-frozenbn-36c240073dcf) ·
+[対照試行のMLflow Run](http://localhost:5050/#/experiments/1/runs/47d191ae75784abfbe3e4a37acdf1b48)
+
 探索には既存の固定検証636枚を使用する。候補の構成と閾値を固定してから、既存の独立確認735枚を使う。
 この735枚には過去の採用判断で使った履歴がある。公開データは補助診断として扱い、
 Kaggle採点は目標到達と提出後の記録に使う。新しい仮説は、先に比較元・変更・測定項目・採否を記録し、
