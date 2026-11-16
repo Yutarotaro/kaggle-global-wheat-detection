@@ -51,7 +51,9 @@ flowchart TB
 ```
 
 † 初期の一部試行はベースコミットに凍結済みの作業差分を加えて実行した。図の
-`base` はGitの基点で、各試行のソースは末尾のハッシュで識別する。
+`base` はGitの基点で、各試行のソースは末尾のハッシュで識別する。MLflowの
+`experiment.ipynb` から凍結済みコードを読める。元がKaggle Scriptの試行には、
+元の投入ファイルからコードを展開した閲覧用Notebookを保存した。
 ‡ 学習前に固定した試行コミット。ローカルの `refs/ml-loop/trials/` に加え、
 GitHubの `codex/wheat-trials/<試行ID>` にも保存した。
 `eff9cf1` は `d31623fdd5114e49-0002`、`77083de` は `1d692cda0f6e4cd2-0002` に対応する。
@@ -174,7 +176,7 @@ flowchart TB
     R["Faster R-CNN R50 v2<br/>FPNと特徴抽出器を比較<br/>固定検証 0.509187<br/>commit 34c041d"]
     R15["R50を重み0.15で追加<br/>固定検証 0.604552<br/>独立確認 0.580625<br/>圃場別基準で見送り<br/>比較 commit 0674326"]
     L["D2 · 12 epoch<br/>元データでクロップと負例<br/>固定検証 0.616477 · epoch 9<br/>commit 03707df"]
-    P["D2を入れ替えて反転TTA<br/>固定検証 0.628095<br/>独立確認 0.627904<br/>提出 58428756 · v1<br/>提出推論 commit e891424"]
+    P["D2を入れ替えて反転TTA<br/>固定検証 0.628095<br/>独立確認 0.627904<br/>Public 0.6740<br/>Private 0.5657<br/>提出 58428756 · v1<br/>提出推論 commit e891424"]
 
     D --> F --> C --> N
     C --> Z

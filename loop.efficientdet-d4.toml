@@ -1,7 +1,7 @@
 seed = 42
 require_trial_commits = true
-baseline_reference = "1d692cda0f6e4cd2-0001"
-baseline_hypothesis = "1,024px推論だけではD2が悪化した。1,024px・EfficientNet-B4とより深いBiFPNのD4を、Kaggle元データの拡大クロップと背景5%で学習し、小さい穂を初めからこの入力解像度で学ぶ効果を比較する。"
+baseline_reference = "06873b044c414c79-0001"
+baseline_hypothesis = "D2の最良epochで小さい穂の再現率が16.51%だった。1,024px・EfficientNet-B4とより深いBiFPNのD4を、同じKaggle元データの拡大クロップ50%と背景5%で学習する。D4の6,006更新をD2の6,012更新と照合し、小さい穂の再現率と撮影元別の固定検証を比較する。"
 runtime_s = 10800
 agent_s = 600
 smoke_s = 240
