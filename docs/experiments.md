@@ -626,6 +626,27 @@ D2の比較元は `06873b044c414c79-0001` の最初の6 epoch。2,002枚、seed 
 別圃場で確認する。実行設定は [`loop.efficientdet-d2-zoomout.toml`](../loop.efficientdet-d2-zoomout.toml)。
 [物体の大きさを揃える学習の先行研究](https://openaccess.thecvf.com/content_WACV_2020/html/Yu_Scale_Match_for_Tiny_Person_Detection_WACV_2020_paper.html)
 
+Kaggle本評価 `b309b3bb65d64b41-0001` をNotebook v1で投入した（学習commit `ba8e0be`）。
+[学習Notebook](https://www.kaggle.com/code/yutarotaro/wheat-train-d2-6e-768-zoomout25-d06db300d791)
+
+### Macでの事前比較
+
+Apple M1・16 GB、PyTorch 2.15.0で、COCO事前学習済みのD2を固定学習分割の4枚で
+forward、backward、AdamW更新まで実行した。768px・batch 4、初回2ステップを除く3回の
+中央値はCPU14.54秒、Mac GPU（MPS）4.17秒。3,006バッチの単純換算で約12.1時間と3.5時間。
+JPEG読み込み、augmentation、固定検証、熱による長時間の速度変化はこの換算に含めていない。
+
+最初のローカル試行は512px・batch 2・64ステップを各設定で実行し、seed 42と
+学習順序、撮影元あたり40枚の検証画像をそろえる。ログには処理時間、loss、小さい穂の再現率、
+固定検証の一部80枚でのスコアを保存する。精度の採否は全体の固定検証と比較する。
+
+```bash
+PYTORCH_ENABLE_MPS_FALLBACK=1 uv run --locked --group wheat --group detr --group dev --group kaggle \
+  python scripts/pilot_wheat_local.py configs/efficientdet-zoomcrop-long.json \
+  configs/efficientdet-d2-zoomout.json --device mps --image-size 512 --batch-size 2 \
+  --steps 64 --output outputs/model-search/local-zoomout-pilot.json
+```
+
 探索には既存の固定検証636枚を使用する。候補の構成と閾値を固定してから、既存の独立確認735枚を使う。
 この735枚には過去の採用判断で使った履歴がある。公開データは補助診断として扱い、
 Kaggle採点は目標到達と提出後の記録に使う。新しい仮説は、先に比較元・変更・測定項目・採否を記録し、
