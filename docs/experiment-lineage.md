@@ -179,7 +179,8 @@ flowchart TB
     P["D2を入れ替えて反転TTA<br/>固定検証 0.628095<br/>独立確認 0.627904<br/>Public 0.6740<br/>Private 0.5657<br/>提出 58428756 · v1<br/>提出推論 commit e891424"]
     D4["D4 · 1,024px · 6 epoch<br/>小さい穂の再現率を比較<br/>固定検証 0.594707 · epoch 6<br/>commit c66cca4"]
     DB["D4 · バックボーンのBN統計固定<br/>学習lossが非有限で停止<br/>未評価<br/>commit 4772447"]
-    DS["D2 · 6 epoch<br/>縮小して小さい穂を増やす<br/>元データの最初の6 epochと比較"]
+    DS["D2 · 6 epoch<br/>縮小して小さい穂を増やす<br/>Kaggle待機中に期限切れ<br/>commit ba8e0be"]
+    DSP["D2 · Macで縮小の事前比較<br/>512pxで小さい穂を検出せず<br/>768pxで再比較<br/>初回 commit 86084d2"]
 
     D --> F --> C --> N
     C --> Z
@@ -200,6 +201,7 @@ flowchart TB
     L -. 比較 .-> D4
     D4 --> DB
     L --> DS
+    DS -. 事前比較 .-> DSP
 ```
 
 <details>

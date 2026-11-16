@@ -627,7 +627,10 @@ D2の比較元は `06873b044c414c79-0001` の最初の6 epoch。2,002枚、seed 
 [物体の大きさを揃える学習の先行研究](https://openaccess.thecvf.com/content_WACV_2020/html/Yu_Scale_Match_for_Tiny_Person_Detection_WACV_2020_paper.html)
 
 Kaggle本評価 `b309b3bb65d64b41-0001` をNotebook v1で投入した（学習commit `ba8e0be`）。
-[学習Notebook](https://www.kaggle.com/code/yutarotaro/wheat-train-d2-6e-768-zoomout25-d06db300d791)
+待機中に2時間のセッション予算を超え、Notebookの開始時チェックで終了した。
+`Session expired before the remote job started` をログで確認した。学習・採点は0 epoch。
+[学習Notebook](https://www.kaggle.com/code/yutarotaro/wheat-train-d2-6e-768-zoomout25-d06db300d791) ·
+[Kaggle学習Run](http://localhost:5050/#/experiments/1/runs/114e83569c9844b9b3e7aa9b83896515)
 
 ### Macでの事前比較
 
@@ -646,6 +649,18 @@ PYTORCH_ENABLE_MPS_FALLBACK=1 uv run --locked --group wheat --group detr --group
   configs/efficientdet-d2-zoomout.json --device mps --image-size 512 --batch-size 2 \
   --steps 64 --output outputs/model-search/local-zoomout-pilot.json
 ```
+
+512pxの比較結果（`86084d2`）。両設定とも64ステップを完走した。
+
+| 条件 | 学習時間 | 固定検証の一部80枚 | `arvalis_2` | `rres_1` | 小さい穂の再現率 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 拡大と背景負例 | 73.3秒 | 0.154816 | 0.167769 | 0.141862 | 0% |
+| 縮小合成も使用 | 64.9秒 | 0.117379 | 0.120042 | 0.114716 | 0% |
+
+この設定では両者とも小さい穂を検出できなかった。次は本学習と同じ768px・batch 4で
+128ステップを各設定に割り当て、同じ80枚を使う。縮小合成が小さい穂の見逃しを減らすか、
+固定検証内の両撮影元で下がる傾向が続くかを見る。
+再現コマンドは上と同じで、`--image-size 768 --batch-size 4 --steps 128` に変更する。
 
 探索には既存の固定検証636枚を使用する。候補の構成と閾値を固定してから、既存の独立確認735枚を使う。
 この735枚には過去の採用判断で使った履歴がある。公開データは補助診断として扱い、
