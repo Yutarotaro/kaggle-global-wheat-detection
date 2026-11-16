@@ -1,0 +1,77 @@
+{
+  "notebook": "yutarotaro/wheat-infer-d2-12e-neg05-06873b04",
+  "source_notebook": "submission-d2-12e-neg05-06873b04.ipynb",
+  "run_label": "d2-12e-neg05-06873b04",
+  "description": "Kaggle元データのEfficientDet-D2 768px・12 epoch、拡大クロップ50%、背景5%。既存アンサンブルと組み合わせる方法は replace-d2。比較元は提出58377134。固定検証0.628095、独立確認0.627904。",
+  "wheel_dataset": "yutarotaro/wheat-offline-inference-wheels",
+  "wheels": {
+    "effdet-0.4.1-py3-none-any.whl": "10889a226228d515c948e3fcf811e64c0d78d7aa94823a300045653b9c284cb7",
+    "ensemble_boxes-1.0.9-py3-none-any.whl": "f095f34d28034213791b8793b9de4d8ba6e40e6a2a6af02336b84c485d853d6a",
+    "timm-1.0.22-py3-none-any.whl": "888981753e65cbaacfc07494370138b1700a27b1f0af587f4f9b47bc024161d0"
+  },
+  "models": [
+    {
+      "trial_id": "8fc98f3e68e8441a-0001",
+      "notebook": "yutarotaro/wheat-train-mbv3-12e-640-hflip-ef473611c538/1",
+      "sha256": "5e2e80f444bd82b2d892eef710836f3fb6cf45d5028ae8bbd97bd062bbbfe1df",
+      "config": {
+        "image_size": 640,
+        "run_label": "mbv3-12e-640-hflip",
+        "epochs": 12,
+        "batch_size": 4,
+        "learning_rate": 0.0001,
+        "horizontal_flip": 0.5,
+        "vertical_flip": 0,
+        "color_jitter": 0,
+        "validation_loss": true,
+        "confidence": 0.3,
+        "nms": 0.5
+      }
+    },
+    {
+      "trial_id": "06873b044c414c79-0001",
+      "notebook": "yutarotaro/wheat-train-d2-12e-768-zoom50-neg05-945c1bce2c8d/1",
+      "sha256": "051ce359df7f3f28e06457cb3695a32c6ebce599b1a33a94ba5d22b885ebca04",
+      "config": {
+        "detector": "efficientdet-d2",
+        "image_size": 768,
+        "run_label": "d2-12e-768-zoom50-neg05",
+        "epochs": 12,
+        "batch_size": 4,
+        "learning_rate": 0.0001,
+        "horizontal_flip": 0.5,
+        "vertical_flip": 0,
+        "color_jitter": 0,
+        "mosaic": 0,
+        "zoom_crop_probability": 0.5,
+        "background_fraction": 0.05,
+        "validation_loss": true,
+        "confidence": 0.3,
+        "nms": 0.5,
+        "use_training_supplement": false
+      }
+    }
+  ],
+  "weights": [
+    0.3333333333333333,
+    0.6666666666666666
+  ],
+  "confidence": 0.34,
+  "iou": 0.45,
+  "validation_score": 0.62809490442038,
+  "holdout_score": 0.627904190468846,
+  "tta_flips": [
+    "horizontal"
+  ],
+  "tta_iou": 0.55,
+  "validation_by_source": {
+    "rres_1": 0.7145443016811425,
+    "arvalis_2": 0.4450255925740595
+  },
+  "holdout_by_source": {
+    "inrae_1": 0.7284391528664196,
+    "arvalis_3": 0.5962509643830268
+  },
+  "variant": "replace-d2",
+  "primary_trial_id": "06873b044c414c79-0001"
+}
