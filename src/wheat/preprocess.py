@@ -40,6 +40,20 @@ def zoom_crop(image, target, rng):
     }
 
 
+def zoom_out(image, target, background, rng):
+    """Resize the whole view onto a canvas verified to contain no labelled heads."""
+    height, width = image.shape[-2:]
+    scale = rng.uniform(0.68, 0.85)
+    scaled_h, scaled_w = max(1, round(height * scale)), max(1, round(width * scale))
+    x, y = rng.randrange(width - scaled_w + 1), rng.randrange(height - scaled_h + 1)
+    canvas = resize(background, [height, width], antialias=True).clone()
+    canvas[:, y:y + scaled_h, x:x + scaled_w] = resize(image, [scaled_h, scaled_w], antialias=True)
+    boxes = target["boxes"]
+    transformed = boxes * boxes.new_tensor([scaled_w / width, scaled_h / height] * 2)
+    transformed += boxes.new_tensor([x, y] * 2)
+    return canvas, {"boxes": transformed, "labels": target["labels"]}
+
+
 def mosaic(samples):
     """Combine four training crops and clip and translate their boxes."""
     size = samples[0][0].shape[-1]

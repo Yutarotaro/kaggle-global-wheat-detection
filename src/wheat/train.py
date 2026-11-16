@@ -22,14 +22,15 @@ from torchvision.transforms import ColorJitter
 from data import sha
 from metric import area, image_score, match
 from model import EFFICIENTDET_MODELS, create_model
-from preprocess import mosaic, read_image, zoom_crop
+from preprocess import mosaic, read_image, zoom_crop, zoom_out
 from preview_samples import select_preview_ids
 from supplement import unpack_supplement
 
 
 class Images(Dataset):
     def __init__(self, root, ids, boxes, flip=0, vertical_flip=0, color_jitter=0, mosaic_probability=0,
-                 extra_root=None, crop_probability=0, seed=42, extra_keys=(), backgrounds=()):
+                 extra_root=None, crop_probability=0, seed=42, extra_keys=(), backgrounds=(),
+                 zoom_out_probability=0):
         self.root, self.ids, self.boxes, self.flip = root, ids, boxes, flip
         self.vertical_flip = vertical_flip
         self.mosaic_probability = mosaic_probability
@@ -38,6 +39,9 @@ class Images(Dataset):
         self.backgrounds = backgrounds
         self.crop_probability = crop_probability
         self.crop_rng = random.Random(seed)
+        self.zoom_out_probability = zoom_out_probability
+        self.zoom_out_rng = random.Random(seed + 1)
+        self.zoom_out_count = 0
         self.color_jitter = (ColorJitter(brightness=color_jitter, contrast=color_jitter,
                                         saturation=color_jitter) if color_jitter else None)
 
@@ -46,9 +50,7 @@ class Images(Dataset):
 
     def __getitem__(self, i):
         if i >= len(self.ids):
-            key, (left, top, right, bottom) = self.backgrounds[i - len(self.ids)]
-            image, target = read_image(self.root / "train" / f"{key}.jpg", [], 0)
-            image = image[:, top:bottom, left:right]
+            image, target = self.load_background(i - len(self.ids))
             if self.flip and random.random() < self.flip:
                 image = image.flip(-1)
             if self.color_jitter is not None:
@@ -60,7 +62,16 @@ class Images(Dataset):
         image, target = self.load(i)
         if self.crop_probability and self.crop_rng.random() < self.crop_probability:
             return zoom_crop(image, target, self.crop_rng)
+        if self.zoom_out_probability and self.zoom_out_rng.random() < self.zoom_out_probability:
+            background, _ = self.load_background(self.zoom_out_rng.randrange(len(self.backgrounds)))
+            self.zoom_out_count += 1
+            return zoom_out(image, target, background, self.zoom_out_rng)
         return image, target
+
+    def load_background(self, index):
+        key, (left, top, right, bottom) = self.backgrounds[index]
+        image, target = read_image(self.root / "train" / f"{key}.jpg", [], 0)
+        return image[:, top:bottom, left:right], target
 
     def load(self, i):
         key = self.ids[i]
@@ -211,6 +222,7 @@ def main(resources):
     config.setdefault("validation_loss", False)
     config.setdefault("mosaic", 0)
     config.setdefault("zoom_crop_probability", 0)
+    config.setdefault("zoom_out_probability", 0)
     config.setdefault("background_fraction", 0)
     if not 0 <= config["background_fraction"] < 1:
         raise ValueError("Background fraction must be in [0, 1).")
@@ -222,6 +234,10 @@ def main(resources):
         raise ValueError("Mosaic probability must be in [0, 1].")
     if not 0 <= config["zoom_crop_probability"] <= 1 or config["zoom_crop_probability"] and config["mosaic"]:
         raise ValueError("Zoom-crop probability must be in [0, 1] and requires Mosaic to be disabled.")
+    if not 0 <= config["zoom_out_probability"] <= 1:
+        raise ValueError("Zoom-out probability must be in [0, 1].")
+    if config["zoom_out_probability"] and (not config["background_fraction"] or config["mosaic"]):
+        raise ValueError("Zoom-out requires the audited background crops and Mosaic disabled.")
     assert 0 <= config["horizontal_flip"] <= 1
     assert 0 <= config["vertical_flip"] <= 1 and 0 <= config["color_jitter"] <= 1
     assert 0 < config["confidence"] < 1
@@ -240,7 +256,9 @@ def main(resources):
                   for _ in sample]
         if config["mosaic"]:
             sample[0], labels[0] = mosaic([(sample[0], labels[0])] * 4)
-        if config["zoom_crop_probability"]:
+        if config["zoom_out_probability"]:
+            sample[0], labels[0] = zoom_out(sample[0], labels[0], sample[1], random.Random(seed))
+        elif config["zoom_crop_probability"]:
             sample[0], labels[0] = zoom_crop(sample[0], labels[0], random.Random(seed))
         if config["background_fraction"]:
             labels[1] = {"boxes": torch.empty(0, 4), "labels": torch.empty(0, dtype=torch.int64)}
@@ -348,7 +366,7 @@ def main(resources):
         dataset = Images(data, sorted(train_ids | extra.keys()), boxes, config["horizontal_flip"],
                          config["vertical_flip"], config["color_jitter"], config["mosaic"], extra_root,
                          crop_probability=config["zoom_crop_probability"], seed=seed, extra_keys=extra,
-                         backgrounds=backgrounds)
+                         backgrounds=backgrounds, zoom_out_probability=config["zoom_out_probability"])
         sampler = (RandomSampler(range(len(dataset.ids)), num_samples=len(train_ids),
                                  generator=torch.Generator().manual_seed(seed)) if extra or backgrounds else None)
         if backgrounds:
@@ -375,6 +393,7 @@ def main(resources):
         best_epoch = None
         for epoch in range(config["epochs"]):
             model.train()
+            dataset.zoom_out_count = 0
             loss_total = 0
             for images, labels in loader:
                 opt.zero_grad(set_to_none=True)
@@ -394,6 +413,8 @@ def main(resources):
                 score, diagnostics = validation_diagnostics(epoch_predictions, boxes, valid_metadata)
                 if backgrounds:
                     diagnostics["train_background_crops"] = sampler.negative_count
+                if config["zoom_out_probability"]:
+                    diagnostics["train_zoom_outs"] = dataset.zoom_out_count
                 progress += f" valid_wheat_image_precision {score:.9f}"
                 if score > best_score:
                     best_score, best_epoch = score, epoch + 1

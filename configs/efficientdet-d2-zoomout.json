@@ -1,0 +1,19 @@
+{
+  "detector": "efficientdet-d2",
+  "image_size": 768,
+  "run_label": "d2-6e-768-zoomout25",
+  "epochs": 6,
+  "batch_size": 4,
+  "learning_rate": 0.0001,
+  "horizontal_flip": 0.5,
+  "vertical_flip": 0,
+  "color_jitter": 0,
+  "mosaic": 0,
+  "zoom_crop_probability": 0.5,
+  "zoom_out_probability": 0.5,
+  "background_fraction": 0.05,
+  "validation_loss": true,
+  "confidence": 0.3,
+  "nms": 0.5,
+  "use_training_supplement": false
+}

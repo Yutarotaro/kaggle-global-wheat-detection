@@ -178,7 +178,8 @@ flowchart TB
     L["D2 · 12 epoch<br/>元データでクロップと負例<br/>固定検証 0.616477 · epoch 9<br/>commit 03707df"]
     P["D2を入れ替えて反転TTA<br/>固定検証 0.628095<br/>独立確認 0.627904<br/>Public 0.6740<br/>Private 0.5657<br/>提出 58428756 · v1<br/>提出推論 commit e891424"]
     D4["D4 · 1,024px · 6 epoch<br/>小さい穂の再現率を比較<br/>固定検証 0.594707 · epoch 6<br/>commit c66cca4"]
-    DB["D4 · 1,024px · 3 epoch<br/>バックボーンのBN統計固定<br/>2・3 epoch目の崩れを比較<br/>commit 4772447"]
+    DB["D4 · バックボーンのBN統計固定<br/>学習lossが非有限で停止<br/>未評価<br/>commit 4772447"]
+    DS["D2 · 6 epoch<br/>縮小して小さい穂を増やす<br/>元データの最初の6 epochと比較"]
 
     D --> F --> C --> N
     C --> Z
@@ -198,6 +199,7 @@ flowchart TB
     S -. 比較 .-> P
     L -. 比較 .-> D4
     D4 --> DB
+    L --> DS
 ```
 
 <details>

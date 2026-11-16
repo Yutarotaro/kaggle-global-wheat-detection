@@ -13,7 +13,7 @@ from data import load_dataset, sha, split_dataset
 from evaluate import evaluate
 from metric import image_score, match
 from model import create_model
-from preprocess import mosaic, zoom_crop
+from preprocess import mosaic, zoom_crop, zoom_out
 from render_previews import render_previews
 from train import BackgroundSampler, load_backgrounds
 
@@ -62,6 +62,29 @@ def test_zoom_crop_preserves_visible_boxes_and_labels():
     assert target["boxes"].tolist() == [[3, 7, 24, 29], [0, 15, 10, 30]]
     assert target["labels"].tolist() == [1, 2]
     assert boxes[1, 0].item() == 10
+
+
+def test_zoom_out_places_all_heads_inside_the_resized_view():
+    class FixedPlacement:
+        positions = iter((2, 1))
+
+        def uniform(self, _low, _high):
+            return .75
+
+        def randrange(self, _stop):
+            return next(self.positions)
+
+    image = torch.ones(3, 8, 12)
+    background = torch.zeros(3, 4, 7)
+    boxes = torch.tensor([[2., 2., 10., 6.]])
+    canvas, target = zoom_out(image, {"boxes": boxes, "labels": torch.tensor([1])}, background,
+                              FixedPlacement())
+    expected = torch.zeros_like(image)
+    expected[:, 1:7, 2:11] = 1
+    torch.testing.assert_close(canvas, expected)
+    assert target["boxes"].tolist() == [[3.5, 2.5, 9.5, 5.5]]
+    assert target["labels"].tolist() == [1]
+    assert boxes.tolist() == [[2., 2., 10., 6.]]
 
 
 def test_background_sampler_keeps_epoch_length_and_uses_distinct_crops():

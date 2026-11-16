@@ -1,0 +1,42 @@
+seed = 42
+require_trial_commits = true
+baseline_reference = "06873b044c414c79-0001"
+baseline_hypothesis = "拡大クロップと背景5%を維持し、拡大対象外の半数の画像を縮小して監査済み背景に配置する。元のD2の6 epoch時点と同じ3,006バッチで、小さい穂の再現率と撮影元別の固定検証を比較する。"
+runtime_s = 5400
+agent_s = 600
+smoke_s = 180
+evaluate_s = 300
+poll_s = 15
+editable = ["configs/efficientdet-d2-zoomout.json"]
+
+[selection]
+group_metric = "by_source"
+max_group_regression = 0.01
+
+[agent]
+type = "config-sweep"
+aggregate_only = true
+path = "configs/efficientdet-d2-zoomout.json"
+variants = []
+
+[executor]
+type = "kaggle"
+owner = "yutarotaro"
+binary = ".venv/bin/kaggle"
+competition = "global-wheat-detection"
+notebook_prefix = "wheat-train"
+notebook_label_file = "configs/efficientdet-d2-zoomout.json"
+notebook_exclude_dirs = ["docs", "notebooks", "scripts", "tests", ".github"]
+accelerator = "NvidiaTeslaT4"
+internet = true
+
+[task]
+type = "command"
+interpreter = ".venv/bin/python"
+metric = "wheat_image_precision"
+direction = "max"
+train = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-d2-zoomout.json", "--background-crops", "data/prepared/background-crops.json", "--epoch-previews", "--epoch-scores"]
+smoke = ["python", "src/wheat/train.py", "--config", "configs/efficientdet-d2-zoomout.json", "--background-crops", "data/prepared/background-crops.json", "--smoke"]
+evaluate = ["python", "src/wheat/evaluate.py"]
+dataset_manifest = "data/prepared/split.json"
+remote_inputs = ["data/prepared/split.json", "data/prepared/background-crops.json"]
