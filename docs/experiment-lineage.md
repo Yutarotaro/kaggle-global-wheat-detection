@@ -180,7 +180,7 @@ flowchart TB
     D4["D4 · 1,024px · 6 epoch<br/>小さい穂の再現率を比較<br/>固定検証 0.594707 · epoch 6<br/>commit c66cca4"]
     DB["D4 · バックボーンのBN統計固定<br/>学習lossが非有限で停止<br/>未評価<br/>commit 4772447"]
     DS["D2 · 6 epoch<br/>縮小して小さい穂を増やす<br/>Kaggle待機中に期限切れ<br/>commit ba8e0be"]
-    DSP["D2 · Macで縮小の事前比較<br/>512pxで小さい穂を検出せず<br/>768pxで再比較<br/>初回 commit 86084d2"]
+    DSP["D2 · Macで縮小の事前比較<br/>768pxで0.347594→0.362501<br/>撮影元別に差があり再試行<br/>比較 commit bda92b1"]
 
     D --> F --> C --> N
     C --> Z
